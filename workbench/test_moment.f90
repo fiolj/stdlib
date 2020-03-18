@@ -1,5 +1,9 @@
-program test_moments
-  use moment1
+program time_moments
+  use stdlib_experimental_error, only: assert
+  use stdlib_experimental_kinds, only: sp, dp, int32, int64
+  use stdlib_experimental_stats, only: moment, mmoment
+  implicit none
+
   integer, parameter :: N = 100000000
   real(8) :: x(N)
   real(8) :: y1(N/5), y(N/5,5)
@@ -9,7 +13,7 @@ program test_moments
 
   order = 2
   call random_number(x)
- 
+
 
   print '("One dimensional cases, length =", I12)', size(x)
 
@@ -62,9 +66,8 @@ program test_moments
   print '("Call to mean Time = ",f6.3," seconds.")', t2-t1
 
 
-  
-  
-end program test_moments
+end program time_moments
+
 
 
 ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
