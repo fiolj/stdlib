@@ -1225,7 +1225,7 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: fmt_
       character(len=1024) :: iomsg, msgout
-      character(len=1), allocatable :: comments_
+      character(len=1) :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
 
@@ -1286,7 +1286,7 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: fmt_
       character(len=1024) :: iomsg, msgout
-      character(len=1), allocatable :: comments_
+      character(len=1) :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
 
@@ -1347,7 +1347,7 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: fmt_
       character(len=1024) :: iomsg, msgout
-      character(len=1), allocatable :: comments_
+      character(len=1) :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
 
@@ -1408,7 +1408,7 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: fmt_
       character(len=1024) :: iomsg, msgout
-      character(len=1), allocatable :: comments_
+      character(len=1) :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
 
@@ -1469,7 +1469,7 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: fmt_
       character(len=1024) :: iomsg, msgout
-      character(len=1), allocatable :: comments_
+      character(len=1) :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
 
@@ -1530,7 +1530,7 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: fmt_
       character(len=1024) :: iomsg, msgout
-      character(len=1), allocatable :: comments_
+      character(len=1) :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
 
@@ -1591,7 +1591,7 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: fmt_
       character(len=1024) :: iomsg, msgout
-      character(len=1), allocatable :: comments_
+      character(len=1) :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
 
@@ -1652,7 +1652,7 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: fmt_
       character(len=1024) :: iomsg, msgout
-      character(len=1), allocatable :: comments_
+      character(len=1) :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
 
