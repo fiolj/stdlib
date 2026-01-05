@@ -11,6 +11,8 @@ module stdlib_io
   use stdlib_optval, only: optval
   use stdlib_ascii, only: is_blank
   use stdlib_string_type, only: string_type, assignment(=), move
+  ! use stdlib_strings, only: replace_all
+
   implicit none
   private
   ! Public API
@@ -67,6 +69,7 @@ module stdlib_io
   !> Default delimiter for loadtxt, savetxt and number_of_columns
   character(len=1), parameter :: delimiter_default = " "
   character(len=1), parameter :: comment_default = "#"
+  character(len=1), parameter :: nl = new_line('a')
 
   public :: FMT_INT, FMT_REAL_SP, FMT_REAL_DP, FMT_REAL_XDP, FMT_REAL_QP
   public :: FMT_COMPLEX_SP, FMT_COMPLEX_DP, FMT_COMPLEX_XDP, FMT_COMPLEX_QP
@@ -1251,7 +1254,11 @@ contains
         fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
           unit = open (filename, "w")
-        if (header_ /= '') write (unit, '(A)') comments_//" "//header_
+
+        if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+        ! prepend function may be replaced by use of replace_all but currently stdlib_strings
+        ! is being compiled after stdlib_io
+        ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
         do i = 1, size(d, 1)
           write (unit, fmt_, &
                         iostat=ios, iomsg=iomsg) d(i, :)
@@ -1263,8 +1270,9 @@ contains
             end if
 
           end do
-          if (footer_ /= '') write (unit, '(A)') comments_//" "//footer_
 
+          ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+          if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
             close (unit)
 
 1         format('savetxt: error <', a, '> writing ', i0, ' values to line ', i0, ' of ', a, '.')
@@ -1317,7 +1325,11 @@ contains
         fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
           unit = open (filename, "w")
-        if (header_ /= '') write (unit, '(A)') comments_//" "//header_
+
+        if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+        ! prepend function may be replaced by use of replace_all but currently stdlib_strings
+        ! is being compiled after stdlib_io
+        ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
         do i = 1, size(d, 1)
           write (unit, fmt_, &
                         iostat=ios, iomsg=iomsg) d(i, :)
@@ -1329,8 +1341,9 @@ contains
             end if
 
           end do
-          if (footer_ /= '') write (unit, '(A)') comments_//" "//footer_
 
+          ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+          if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
             close (unit)
 
 1         format('savetxt: error <', a, '> writing ', i0, ' values to line ', i0, ' of ', a, '.')
@@ -1383,7 +1396,11 @@ contains
         fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
           unit = open (filename, "w")
-        if (header_ /= '') write (unit, '(A)') comments_//" "//header_
+
+        if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+        ! prepend function may be replaced by use of replace_all but currently stdlib_strings
+        ! is being compiled after stdlib_io
+        ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
         do i = 1, size(d, 1)
           write (unit, fmt_, &
                         iostat=ios, iomsg=iomsg) d(i, :)
@@ -1395,8 +1412,9 @@ contains
             end if
 
           end do
-          if (footer_ /= '') write (unit, '(A)') comments_//" "//footer_
 
+          ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+          if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
             close (unit)
 
 1         format('savetxt: error <', a, '> writing ', i0, ' values to line ', i0, ' of ', a, '.')
@@ -1449,7 +1467,11 @@ contains
         fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
           unit = open (filename, "w")
-        if (header_ /= '') write (unit, '(A)') comments_//" "//header_
+
+        if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+        ! prepend function may be replaced by use of replace_all but currently stdlib_strings
+        ! is being compiled after stdlib_io
+        ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
         do i = 1, size(d, 1)
           write (unit, fmt_, &
                         iostat=ios, iomsg=iomsg) d(i, :)
@@ -1461,8 +1483,9 @@ contains
             end if
 
           end do
-          if (footer_ /= '') write (unit, '(A)') comments_//" "//footer_
 
+          ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+          if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
             close (unit)
 
 1         format('savetxt: error <', a, '> writing ', i0, ' values to line ', i0, ' of ', a, '.')
@@ -1515,7 +1538,11 @@ contains
         fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
           unit = open (filename, "w")
-        if (header_ /= '') write (unit, '(A)') comments_//" "//header_
+
+        if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+        ! prepend function may be replaced by use of replace_all but currently stdlib_strings
+        ! is being compiled after stdlib_io
+        ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
         do i = 1, size(d, 1)
           write (unit, fmt_, &
                         iostat=ios, iomsg=iomsg) d(i, :)
@@ -1527,8 +1554,9 @@ contains
             end if
 
           end do
-          if (footer_ /= '') write (unit, '(A)') comments_//" "//footer_
 
+          ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+          if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
             close (unit)
 
 1         format('savetxt: error <', a, '> writing ', i0, ' values to line ', i0, ' of ', a, '.')
@@ -1581,7 +1609,11 @@ contains
         fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
           unit = open (filename, "w")
-        if (header_ /= '') write (unit, '(A)') comments_//" "//header_
+
+        if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+        ! prepend function may be replaced by use of replace_all but currently stdlib_strings
+        ! is being compiled after stdlib_io
+        ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
         do i = 1, size(d, 1)
           write (unit, fmt_, &
                         iostat=ios, iomsg=iomsg) d(i, :)
@@ -1593,8 +1625,9 @@ contains
             end if
 
           end do
-          if (footer_ /= '') write (unit, '(A)') comments_//" "//footer_
 
+          ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+          if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
             close (unit)
 
 1         format('savetxt: error <', a, '> writing ', i0, ' values to line ', i0, ' of ', a, '.')
@@ -1647,7 +1680,11 @@ contains
         fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
           unit = open (filename, "w")
-        if (header_ /= '') write (unit, '(A)') comments_//" "//header_
+
+        if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+        ! prepend function may be replaced by use of replace_all but currently stdlib_strings
+        ! is being compiled after stdlib_io
+        ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
         do i = 1, size(d, 1)
           write (unit, fmt_, &
                         iostat=ios, iomsg=iomsg) d(i, :)
@@ -1659,8 +1696,9 @@ contains
             end if
 
           end do
-          if (footer_ /= '') write (unit, '(A)') comments_//" "//footer_
 
+          ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+          if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
             close (unit)
 
 1         format('savetxt: error <', a, '> writing ', i0, ' values to line ', i0, ' of ', a, '.')
@@ -1713,7 +1751,11 @@ contains
         fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
           unit = open (filename, "w")
-        if (header_ /= '') write (unit, '(A)') comments_//" "//header_
+
+        if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+        ! prepend function may be replaced by use of replace_all but currently stdlib_strings
+        ! is being compiled after stdlib_io
+        ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
         do i = 1, size(d, 1)
           write (unit, fmt_, &
                         iostat=ios, iomsg=iomsg) d(i, :)
@@ -1725,8 +1767,9 @@ contains
             end if
 
           end do
-          if (footer_ /= '') write (unit, '(A)') comments_//" "//footer_
 
+          ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+          if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
             close (unit)
 
 1         format('savetxt: error <', a, '> writing ', i0, ' values to line ', i0, ' of ', a, '.')
@@ -1777,7 +1820,11 @@ contains
           default_fmt = FMT_REAL_sp (2:len(FMT_REAL_sp) - 1)
         fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-        if (header_ /= '') write (unit, '(A)') comments_//" "//header_
+
+        if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+        ! prepend function may be replaced by use of replace_all but currently stdlib_strings
+        ! is being compiled after stdlib_io
+        ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
         do i = 1, size(d, 1)
           write (unit, fmt_, &
                         iostat=ios, iomsg=iomsg) d(i, :)
@@ -1789,8 +1836,9 @@ contains
             end if
 
           end do
-          if (footer_ /= '') write (unit, '(A)') comments_//" "//footer_
 
+          ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+          if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
 1         format('savetxt: error <', a, '> writing ', i0, ' values to line ', i0, ' of ', a, '.')
 
@@ -1840,7 +1888,11 @@ contains
           default_fmt = FMT_REAL_dp (2:len(FMT_REAL_dp) - 1)
         fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-        if (header_ /= '') write (unit, '(A)') comments_//" "//header_
+
+        if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+        ! prepend function may be replaced by use of replace_all but currently stdlib_strings
+        ! is being compiled after stdlib_io
+        ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
         do i = 1, size(d, 1)
           write (unit, fmt_, &
                         iostat=ios, iomsg=iomsg) d(i, :)
@@ -1852,8 +1904,9 @@ contains
             end if
 
           end do
-          if (footer_ /= '') write (unit, '(A)') comments_//" "//footer_
 
+          ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+          if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
 1         format('savetxt: error <', a, '> writing ', i0, ' values to line ', i0, ' of ', a, '.')
 
@@ -1903,7 +1956,11 @@ contains
           default_fmt = FMT_INT(2:len(FMT_INT) - 1)
         fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-        if (header_ /= '') write (unit, '(A)') comments_//" "//header_
+
+        if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+        ! prepend function may be replaced by use of replace_all but currently stdlib_strings
+        ! is being compiled after stdlib_io
+        ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
         do i = 1, size(d, 1)
           write (unit, fmt_, &
                         iostat=ios, iomsg=iomsg) d(i, :)
@@ -1915,8 +1972,9 @@ contains
             end if
 
           end do
-          if (footer_ /= '') write (unit, '(A)') comments_//" "//footer_
 
+          ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+          if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
 1         format('savetxt: error <', a, '> writing ', i0, ' values to line ', i0, ' of ', a, '.')
 
@@ -1966,7 +2024,11 @@ contains
           default_fmt = FMT_INT(2:len(FMT_INT) - 1)
         fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-        if (header_ /= '') write (unit, '(A)') comments_//" "//header_
+
+        if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+        ! prepend function may be replaced by use of replace_all but currently stdlib_strings
+        ! is being compiled after stdlib_io
+        ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
         do i = 1, size(d, 1)
           write (unit, fmt_, &
                         iostat=ios, iomsg=iomsg) d(i, :)
@@ -1978,8 +2040,9 @@ contains
             end if
 
           end do
-          if (footer_ /= '') write (unit, '(A)') comments_//" "//footer_
 
+          ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+          if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
 1         format('savetxt: error <', a, '> writing ', i0, ' values to line ', i0, ' of ', a, '.')
 
@@ -2029,7 +2092,11 @@ contains
           default_fmt = FMT_INT(2:len(FMT_INT) - 1)
         fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-        if (header_ /= '') write (unit, '(A)') comments_//" "//header_
+
+        if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+        ! prepend function may be replaced by use of replace_all but currently stdlib_strings
+        ! is being compiled after stdlib_io
+        ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
         do i = 1, size(d, 1)
           write (unit, fmt_, &
                         iostat=ios, iomsg=iomsg) d(i, :)
@@ -2041,8 +2108,9 @@ contains
             end if
 
           end do
-          if (footer_ /= '') write (unit, '(A)') comments_//" "//footer_
 
+          ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+          if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
 1         format('savetxt: error <', a, '> writing ', i0, ' values to line ', i0, ' of ', a, '.')
 
@@ -2092,7 +2160,11 @@ contains
           default_fmt = FMT_INT(2:len(FMT_INT) - 1)
         fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-        if (header_ /= '') write (unit, '(A)') comments_//" "//header_
+
+        if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+        ! prepend function may be replaced by use of replace_all but currently stdlib_strings
+        ! is being compiled after stdlib_io
+        ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
         do i = 1, size(d, 1)
           write (unit, fmt_, &
                         iostat=ios, iomsg=iomsg) d(i, :)
@@ -2104,8 +2176,9 @@ contains
             end if
 
           end do
-          if (footer_ /= '') write (unit, '(A)') comments_//" "//footer_
 
+          ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+          if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
 1         format('savetxt: error <', a, '> writing ', i0, ' values to line ', i0, ' of ', a, '.')
 
@@ -2155,7 +2228,11 @@ contains
           default_fmt = FMT_COMPLEX_sp (2:11)//delim_str//FMT_COMPLEX_sp (14:23)
         fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-        if (header_ /= '') write (unit, '(A)') comments_//" "//header_
+
+        if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+        ! prepend function may be replaced by use of replace_all but currently stdlib_strings
+        ! is being compiled after stdlib_io
+        ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
         do i = 1, size(d, 1)
           write (unit, fmt_, &
                         iostat=ios, iomsg=iomsg) d(i, :)
@@ -2167,8 +2244,9 @@ contains
             end if
 
           end do
-          if (footer_ /= '') write (unit, '(A)') comments_//" "//footer_
 
+          ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+          if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
 1         format('savetxt: error <', a, '> writing ', i0, ' values to line ', i0, ' of ', a, '.')
 
@@ -2218,7 +2296,11 @@ contains
           default_fmt = FMT_COMPLEX_dp (2:11)//delim_str//FMT_COMPLEX_dp (14:23)
         fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-        if (header_ /= '') write (unit, '(A)') comments_//" "//header_
+
+        if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+        ! prepend function may be replaced by use of replace_all but currently stdlib_strings
+        ! is being compiled after stdlib_io
+        ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
         do i = 1, size(d, 1)
           write (unit, fmt_, &
                         iostat=ios, iomsg=iomsg) d(i, :)
@@ -2230,12 +2312,34 @@ contains
             end if
 
           end do
-          if (footer_ /= '') write (unit, '(A)') comments_//" "//footer_
 
+          ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+          if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
 1         format('savetxt: error <', a, '> writing ', i0, ' values to line ', i0, ' of ', a, '.')
 
         end subroutine savetxt_cdpu
+
+    pure function prepend(Sin, comment) result(Sout)
+      character(len=*), intent(in) :: Sin
+      character(len=:), allocatable :: Sout
+      character(len=1), intent(in) :: comment !
+      character(len=3) :: com_
+      integer :: bol, eol       ! indexes of beginning and end of line
+
+      ! IF (trim(Sin) == '') return
+      com_ = comment//" "
+      bol = 1
+      Sout = com_              ! Initialize to comment the first line
+      do
+        eol = index(Sin(bol:), nl) + bol - 1 ! position of end of line in original string
+        IF (eol == bol - 1) exit             ! index returned 0
+        Sout = Sout//Sin(bol:eol)//com_
+        bol = eol + 1
+      end do
+      if (eol < len(Sin)) Sout = Sout//Sin(eol + 1:) ! Add last line if not newline present
+
+    end function prepend
 
     integer function number_of_columns(s, skiprows, delimiter)
     !! version: experimental
