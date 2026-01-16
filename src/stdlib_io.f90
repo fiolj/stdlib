@@ -11,7 +11,6 @@ module stdlib_io
   use stdlib_optval, only: optval
   use stdlib_ascii, only: is_blank
   use stdlib_string_type, only : string_type, assignment(=), move
-  ! use stdlib_strings, only: replace_all
   implicit none
   private
   ! Public API
@@ -1219,8 +1218,8 @@ contains
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=1), intent(in), optional :: comments  !< Comment character. Default "#"
-      character(len=*), intent(in), optional :: fmt  !< Comment character. Default "#"
+      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier.  Defaults to the write format for the data type.
       !!
       !! Example
       !! -------
@@ -1235,7 +1234,7 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
-      character(len=1), allocatable :: comments_
+      character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
       character(len=1024) :: iomsg, msgout
@@ -1253,8 +1252,8 @@ contains
       unit = open (filename, "w")
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
+      ! prepend function may eventually be replaced by use of replace_all 
+      ! but currently stdlib_strings is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
       do i = 1, size(d, 1)
@@ -1272,7 +1271,6 @@ contains
       if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
       close (unit)
 
-      
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_rspf
@@ -1289,8 +1287,8 @@ contains
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=1), intent(in), optional :: comments  !< Comment character. Default "#"
-      character(len=*), intent(in), optional :: fmt  !< Comment character. Default "#"
+      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier.  Defaults to the write format for the data type.
       !!
       !! Example
       !! -------
@@ -1305,7 +1303,7 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
-      character(len=1), allocatable :: comments_
+      character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
       character(len=1024) :: iomsg, msgout
@@ -1323,8 +1321,8 @@ contains
       unit = open (filename, "w")
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
+      ! prepend function may eventually be replaced by use of replace_all 
+      ! but currently stdlib_strings is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
       do i = 1, size(d, 1)
@@ -1342,7 +1340,6 @@ contains
       if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
       close (unit)
 
-      
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_rdpf
@@ -1359,8 +1356,8 @@ contains
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=1), intent(in), optional :: comments  !< Comment character. Default "#"
-      character(len=*), intent(in), optional :: fmt  !< Comment character. Default "#"
+      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier.  Defaults to the write format for the data type.
       !!
       !! Example
       !! -------
@@ -1375,7 +1372,7 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
-      character(len=1), allocatable :: comments_
+      character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
       character(len=1024) :: iomsg, msgout
@@ -1393,8 +1390,8 @@ contains
       unit = open (filename, "w")
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
+      ! prepend function may eventually be replaced by use of replace_all 
+      ! but currently stdlib_strings is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
       do i = 1, size(d, 1)
@@ -1412,7 +1409,6 @@ contains
       if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
       close (unit)
 
-      
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_iint8f
@@ -1429,8 +1425,8 @@ contains
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=1), intent(in), optional :: comments  !< Comment character. Default "#"
-      character(len=*), intent(in), optional :: fmt  !< Comment character. Default "#"
+      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier.  Defaults to the write format for the data type.
       !!
       !! Example
       !! -------
@@ -1445,7 +1441,7 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
-      character(len=1), allocatable :: comments_
+      character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
       character(len=1024) :: iomsg, msgout
@@ -1463,8 +1459,8 @@ contains
       unit = open (filename, "w")
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
+      ! prepend function may eventually be replaced by use of replace_all 
+      ! but currently stdlib_strings is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
       do i = 1, size(d, 1)
@@ -1482,7 +1478,6 @@ contains
       if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
       close (unit)
 
-      
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_iint16f
@@ -1499,8 +1494,8 @@ contains
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=1), intent(in), optional :: comments  !< Comment character. Default "#"
-      character(len=*), intent(in), optional :: fmt  !< Comment character. Default "#"
+      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier.  Defaults to the write format for the data type.
       !!
       !! Example
       !! -------
@@ -1515,7 +1510,7 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
-      character(len=1), allocatable :: comments_
+      character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
       character(len=1024) :: iomsg, msgout
@@ -1533,8 +1528,8 @@ contains
       unit = open (filename, "w")
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
+      ! prepend function may eventually be replaced by use of replace_all 
+      ! but currently stdlib_strings is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
       do i = 1, size(d, 1)
@@ -1552,7 +1547,6 @@ contains
       if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
       close (unit)
 
-      
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_iint32f
@@ -1569,8 +1563,8 @@ contains
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=1), intent(in), optional :: comments  !< Comment character. Default "#"
-      character(len=*), intent(in), optional :: fmt  !< Comment character. Default "#"
+      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier.  Defaults to the write format for the data type.
       !!
       !! Example
       !! -------
@@ -1585,7 +1579,7 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
-      character(len=1), allocatable :: comments_
+      character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
       character(len=1024) :: iomsg, msgout
@@ -1603,8 +1597,8 @@ contains
       unit = open (filename, "w")
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
+      ! prepend function may eventually be replaced by use of replace_all 
+      ! but currently stdlib_strings is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
       do i = 1, size(d, 1)
@@ -1622,7 +1616,6 @@ contains
       if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
       close (unit)
 
-      
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_iint64f
@@ -1639,8 +1632,8 @@ contains
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=1), intent(in), optional :: comments  !< Comment character. Default "#"
-      character(len=*), intent(in), optional :: fmt  !< Comment character. Default "#"
+      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier.  Defaults to the write format for the data type.
       !!
       !! Example
       !! -------
@@ -1655,7 +1648,7 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
-      character(len=1), allocatable :: comments_
+      character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
       character(len=1024) :: iomsg, msgout
@@ -1673,8 +1666,8 @@ contains
       unit = open (filename, "w")
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
+      ! prepend function may eventually be replaced by use of replace_all 
+      ! but currently stdlib_strings is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
       do i = 1, size(d, 1)
@@ -1692,7 +1685,6 @@ contains
       if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
       close (unit)
 
-      
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_cspf
@@ -1709,8 +1701,8 @@ contains
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=1), intent(in), optional :: comments  !< Comment character. Default "#"
-      character(len=*), intent(in), optional :: fmt  !< Comment character. Default "#"
+      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier.  Defaults to the write format for the data type.
       !!
       !! Example
       !! -------
@@ -1725,7 +1717,7 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
-      character(len=1), allocatable :: comments_
+      character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
       character(len=1024) :: iomsg, msgout
@@ -1743,8 +1735,8 @@ contains
       unit = open (filename, "w")
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
+      ! prepend function may eventually be replaced by use of replace_all 
+      ! but currently stdlib_strings is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
       do i = 1, size(d, 1)
@@ -1762,7 +1754,6 @@ contains
       if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
       close (unit)
 
-      
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_cdpf
@@ -1779,8 +1770,8 @@ contains
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=1), intent(in), optional :: comments  !< Comment character. Default "#"
-      character(len=*), intent(in), optional :: fmt  !< Comment character. Default "#"
+      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier.  Defaults to the write format for the data type.
       !!
       !! Example
       !! -------
@@ -1795,10 +1786,11 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
-      character(len=1), allocatable :: comments_
+      character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
       character(len=1024) :: iomsg, msgout
+      logical :: opened
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
@@ -1809,10 +1801,14 @@ contains
         default_fmt = FMT_REAL_sp(2:len(FMT_REAL_sp)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
+      inquire (unit=unit, opened=opened)
+      if(.not. opened) then
+           write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
+      end if
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
+      ! prepend function may eventually be replaced by use of replace_all 
+      ! but currently stdlib_strings is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
       do i = 1, size(d, 1)
@@ -1829,8 +1825,7 @@ contains
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
       if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
-      
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
+      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
       
     end subroutine savetxt_rspu
     subroutine savetxt_rdpu (unit, d, delimiter, fmt, header, footer, comments)
@@ -1846,8 +1841,8 @@ contains
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=1), intent(in), optional :: comments  !< Comment character. Default "#"
-      character(len=*), intent(in), optional :: fmt  !< Comment character. Default "#"
+      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier.  Defaults to the write format for the data type.
       !!
       !! Example
       !! -------
@@ -1862,10 +1857,11 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
-      character(len=1), allocatable :: comments_
+      character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
       character(len=1024) :: iomsg, msgout
+      logical :: opened
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
@@ -1876,10 +1872,14 @@ contains
         default_fmt = FMT_REAL_dp(2:len(FMT_REAL_dp)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
+      inquire (unit=unit, opened=opened)
+      if(.not. opened) then
+           write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
+      end if
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
+      ! prepend function may eventually be replaced by use of replace_all 
+      ! but currently stdlib_strings is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
       do i = 1, size(d, 1)
@@ -1896,8 +1896,7 @@ contains
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
       if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
-      
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
+      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
       
     end subroutine savetxt_rdpu
     subroutine savetxt_iint8u (unit, d, delimiter, fmt, header, footer, comments)
@@ -1913,8 +1912,8 @@ contains
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=1), intent(in), optional :: comments  !< Comment character. Default "#"
-      character(len=*), intent(in), optional :: fmt  !< Comment character. Default "#"
+      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier.  Defaults to the write format for the data type.
       !!
       !! Example
       !! -------
@@ -1929,10 +1928,11 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
-      character(len=1), allocatable :: comments_
+      character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
       character(len=1024) :: iomsg, msgout
+      logical :: opened
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
@@ -1943,10 +1943,14 @@ contains
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
+      inquire (unit=unit, opened=opened)
+      if(.not. opened) then
+           write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
+      end if
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
+      ! prepend function may eventually be replaced by use of replace_all 
+      ! but currently stdlib_strings is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
       do i = 1, size(d, 1)
@@ -1963,8 +1967,7 @@ contains
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
       if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
-      
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
+      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
       
     end subroutine savetxt_iint8u
     subroutine savetxt_iint16u (unit, d, delimiter, fmt, header, footer, comments)
@@ -1980,8 +1983,8 @@ contains
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=1), intent(in), optional :: comments  !< Comment character. Default "#"
-      character(len=*), intent(in), optional :: fmt  !< Comment character. Default "#"
+      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier.  Defaults to the write format for the data type.
       !!
       !! Example
       !! -------
@@ -1996,10 +1999,11 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
-      character(len=1), allocatable :: comments_
+      character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
       character(len=1024) :: iomsg, msgout
+      logical :: opened
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
@@ -2010,10 +2014,14 @@ contains
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
+      inquire (unit=unit, opened=opened)
+      if(.not. opened) then
+           write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
+      end if
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
+      ! prepend function may eventually be replaced by use of replace_all 
+      ! but currently stdlib_strings is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
       do i = 1, size(d, 1)
@@ -2030,8 +2038,7 @@ contains
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
       if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
-      
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
+      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
       
     end subroutine savetxt_iint16u
     subroutine savetxt_iint32u (unit, d, delimiter, fmt, header, footer, comments)
@@ -2047,8 +2054,8 @@ contains
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=1), intent(in), optional :: comments  !< Comment character. Default "#"
-      character(len=*), intent(in), optional :: fmt  !< Comment character. Default "#"
+      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier.  Defaults to the write format for the data type.
       !!
       !! Example
       !! -------
@@ -2063,10 +2070,11 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
-      character(len=1), allocatable :: comments_
+      character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
       character(len=1024) :: iomsg, msgout
+      logical :: opened
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
@@ -2077,10 +2085,14 @@ contains
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
+      inquire (unit=unit, opened=opened)
+      if(.not. opened) then
+           write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
+      end if
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
+      ! prepend function may eventually be replaced by use of replace_all 
+      ! but currently stdlib_strings is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
       do i = 1, size(d, 1)
@@ -2097,8 +2109,7 @@ contains
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
       if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
-      
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
+      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
       
     end subroutine savetxt_iint32u
     subroutine savetxt_iint64u (unit, d, delimiter, fmt, header, footer, comments)
@@ -2114,8 +2125,8 @@ contains
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=1), intent(in), optional :: comments  !< Comment character. Default "#"
-      character(len=*), intent(in), optional :: fmt  !< Comment character. Default "#"
+      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier.  Defaults to the write format for the data type.
       !!
       !! Example
       !! -------
@@ -2130,10 +2141,11 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
-      character(len=1), allocatable :: comments_
+      character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
       character(len=1024) :: iomsg, msgout
+      logical :: opened
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
@@ -2144,10 +2156,14 @@ contains
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
+      inquire (unit=unit, opened=opened)
+      if(.not. opened) then
+           write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
+      end if
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
+      ! prepend function may eventually be replaced by use of replace_all 
+      ! but currently stdlib_strings is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
       do i = 1, size(d, 1)
@@ -2164,8 +2180,7 @@ contains
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
       if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
-      
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
+      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
       
     end subroutine savetxt_iint64u
     subroutine savetxt_cspu (unit, d, delimiter, fmt, header, footer, comments)
@@ -2181,8 +2196,8 @@ contains
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=1), intent(in), optional :: comments  !< Comment character. Default "#"
-      character(len=*), intent(in), optional :: fmt  !< Comment character. Default "#"
+      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier.  Defaults to the write format for the data type.
       !!
       !! Example
       !! -------
@@ -2197,10 +2212,11 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
-      character(len=1), allocatable :: comments_
+      character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
       character(len=1024) :: iomsg, msgout
+      logical :: opened
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
@@ -2211,10 +2227,14 @@ contains
         default_fmt = FMT_COMPLEX_sp(2:11)//delim_str//FMT_COMPLEX_sp (14:23)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
+      inquire (unit=unit, opened=opened)
+      if(.not. opened) then
+           write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
+      end if
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
+      ! prepend function may eventually be replaced by use of replace_all 
+      ! but currently stdlib_strings is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
       do i = 1, size(d, 1)
@@ -2231,8 +2251,7 @@ contains
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
       if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
-      
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
+      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
       
     end subroutine savetxt_cspu
     subroutine savetxt_cdpu (unit, d, delimiter, fmt, header, footer, comments)
@@ -2248,8 +2267,8 @@ contains
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=1), intent(in), optional :: comments  !< Comment character. Default "#"
-      character(len=*), intent(in), optional :: fmt  !< Comment character. Default "#"
+      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier.  Defaults to the write format for the data type.
       !!
       !! Example
       !! -------
@@ -2264,10 +2283,11 @@ contains
       character(len=3) :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
-      character(len=1), allocatable :: comments_
+      character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
       character(len=1024) :: iomsg, msgout
+      logical :: opened
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
@@ -2278,10 +2298,14 @@ contains
         default_fmt = FMT_COMPLEX_dp(2:11)//delim_str//FMT_COMPLEX_dp (14:23)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
+      inquire (unit=unit, opened=opened)
+      if(.not. opened) then
+           write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
+      end if
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
+      ! prepend function may eventually be replaced by use of replace_all 
+      ! but currently stdlib_strings is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
       do i = 1, size(d, 1)
@@ -2298,15 +2322,14 @@ contains
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
       if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
-      
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
+      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
       
     end subroutine savetxt_cdpu
   pure function prepend(Sin, comment) result(Sout)
     character(len=*), intent(in) :: Sin
     character(len=:), allocatable :: Sout
-    character(len=1), intent(in) :: comment 
-    character(len=3) :: com_
+    character(len=*), intent(in) :: comment 
+    character(len=len(comment)+2) :: com_
     integer :: bol, eol       ! indexes of beginning and end of line
 
     ! IF (trim(Sin) == '') return
