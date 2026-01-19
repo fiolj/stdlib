@@ -1215,7 +1215,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       real(sp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1268,7 +1268,7 @@ contains
         
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
       close (unit)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
@@ -1284,7 +1284,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       real(dp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1337,7 +1337,7 @@ contains
         
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
       close (unit)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
@@ -1353,7 +1353,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       integer(int8), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1406,7 +1406,7 @@ contains
         
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
       close (unit)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
@@ -1422,7 +1422,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       integer(int16), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1475,7 +1475,7 @@ contains
         
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
       close (unit)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
@@ -1491,7 +1491,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       integer(int32), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1544,7 +1544,7 @@ contains
         
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
       close (unit)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
@@ -1560,7 +1560,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       integer(int64), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1613,7 +1613,7 @@ contains
         
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
       close (unit)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
@@ -1629,7 +1629,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       complex(sp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1682,7 +1682,7 @@ contains
         
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
       close (unit)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
@@ -1698,7 +1698,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       complex(dp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1751,7 +1751,7 @@ contains
         
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
       close (unit)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
@@ -1767,7 +1767,7 @@ contains
       !!
       integer, intent(in) :: unit
       real(sp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1823,7 +1823,7 @@ contains
         
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
       
@@ -1838,7 +1838,7 @@ contains
       !!
       integer, intent(in) :: unit
       real(dp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1894,7 +1894,7 @@ contains
         
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
       
@@ -1909,7 +1909,7 @@ contains
       !!
       integer, intent(in) :: unit
       integer(int8), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1965,7 +1965,7 @@ contains
         
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
       
@@ -1980,7 +1980,7 @@ contains
       !!
       integer, intent(in) :: unit
       integer(int16), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -2036,7 +2036,7 @@ contains
         
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
       
@@ -2051,7 +2051,7 @@ contains
       !!
       integer, intent(in) :: unit
       integer(int32), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -2107,7 +2107,7 @@ contains
         
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
       
@@ -2122,7 +2122,7 @@ contains
       !!
       integer, intent(in) :: unit
       integer(int64), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -2178,7 +2178,7 @@ contains
         
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
       
@@ -2193,7 +2193,7 @@ contains
       !!
       integer, intent(in) :: unit
       complex(sp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -2249,7 +2249,7 @@ contains
         
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
       
@@ -2264,7 +2264,7 @@ contains
       !!
       integer, intent(in) :: unit
       complex(dp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -2320,7 +2320,7 @@ contains
         
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') write (unit, '(A)') prepend(footer_, nl//comments_)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
       
@@ -2338,7 +2338,7 @@ contains
     Sout = com_              ! Initialize to comment the first line
     do
       eol = index(Sin(bol:), nl) + bol - 1 ! position of end of line in original string
-      if (eol == bol - 1) exit             ! index returned 0
+      IF (eol == bol - 1) exit             ! index returned 0
       Sout = Sout//Sin(bol:eol)//com_
       bol = eol + 1
     end do
