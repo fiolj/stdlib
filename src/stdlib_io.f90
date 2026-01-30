@@ -11,7 +11,7 @@ module stdlib_io
                                  FMT_COMPLEX_SP, FMT_COMPLEX_DP, FMT_COMPLEX_XDP, FMT_COMPLEX_QP
   use stdlib_error, only: error_stop, state_type, STDLIB_IO_ERROR
   use stdlib_optval, only: optval
-  use stdlib_ascii, only: is_blank
+  use stdlib_ascii, only: is_blank, whitespace, CR,LF,VT,FF
   use stdlib_string_type, only : string_type, assignment(=), move
   implicit none
   private
@@ -1194,7 +1194,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       real(sp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1209,14 +1209,15 @@ contains
       !!```
       !!
       integer :: s, i, ios
-      character(len=1) :: delimiter_
-      character(len=3) :: delim_str
+      character(len=:), allocatable :: delimiter_
+      character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout
+      character(len=1024) :: iomsg, msgout, fout
+
       integer :: unit
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1225,29 +1226,58 @@ contains
       header_ = optval(header, '')
       footer_ = optval(footer, '')
 
+      if(index(delimiter_, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
+          call error_stop(msg=trim(msgout))
+      end if
+
+      if(scan(whitespace, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+
         default_fmt = FMT_REAL_sp(2:len(FMT_REAL_sp)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       unit = open (filename, "w")
+      fout = filename
 
       !! Write the header if non-empty
       ! prepend function may be replaced by use of replace_all but currently stdlib_strings
       ! is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
-      if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+      if (header_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+        
       do i = 1, size(d, 1)
           write(unit, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,&
-              trim(filename)
-           call error_stop(msg=trim(msgout))
+            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
+            call error_stop(msg=trim(msgout))
         end if           
-        
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+
       close (unit)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
@@ -1263,7 +1293,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       real(dp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1278,14 +1308,15 @@ contains
       !!```
       !!
       integer :: s, i, ios
-      character(len=1) :: delimiter_
-      character(len=3) :: delim_str
+      character(len=:), allocatable :: delimiter_
+      character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout
+      character(len=1024) :: iomsg, msgout, fout
+
       integer :: unit
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1294,29 +1325,58 @@ contains
       header_ = optval(header, '')
       footer_ = optval(footer, '')
 
+      if(index(delimiter_, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
+          call error_stop(msg=trim(msgout))
+      end if
+
+      if(scan(whitespace, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+
         default_fmt = FMT_REAL_dp(2:len(FMT_REAL_dp)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       unit = open (filename, "w")
+      fout = filename
 
       !! Write the header if non-empty
       ! prepend function may be replaced by use of replace_all but currently stdlib_strings
       ! is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
-      if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+      if (header_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+        
       do i = 1, size(d, 1)
           write(unit, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,&
-              trim(filename)
-           call error_stop(msg=trim(msgout))
+            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
+            call error_stop(msg=trim(msgout))
         end if           
-        
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+
       close (unit)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
@@ -1332,7 +1392,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       integer(int8), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1347,14 +1407,15 @@ contains
       !!```
       !!
       integer :: s, i, ios
-      character(len=1) :: delimiter_
-      character(len=3) :: delim_str
+      character(len=:), allocatable :: delimiter_
+      character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout
+      character(len=1024) :: iomsg, msgout, fout
+
       integer :: unit
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1363,29 +1424,58 @@ contains
       header_ = optval(header, '')
       footer_ = optval(footer, '')
 
+      if(index(delimiter_, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
+          call error_stop(msg=trim(msgout))
+      end if
+
+      if(scan(whitespace, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       unit = open (filename, "w")
+      fout = filename
 
       !! Write the header if non-empty
       ! prepend function may be replaced by use of replace_all but currently stdlib_strings
       ! is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
-      if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+      if (header_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+        
       do i = 1, size(d, 1)
           write(unit, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,&
-              trim(filename)
-           call error_stop(msg=trim(msgout))
+            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
+            call error_stop(msg=trim(msgout))
         end if           
-        
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+
       close (unit)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
@@ -1401,7 +1491,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       integer(int16), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1416,14 +1506,15 @@ contains
       !!```
       !!
       integer :: s, i, ios
-      character(len=1) :: delimiter_
-      character(len=3) :: delim_str
+      character(len=:), allocatable :: delimiter_
+      character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout
+      character(len=1024) :: iomsg, msgout, fout
+
       integer :: unit
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1432,29 +1523,58 @@ contains
       header_ = optval(header, '')
       footer_ = optval(footer, '')
 
+      if(index(delimiter_, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
+          call error_stop(msg=trim(msgout))
+      end if
+
+      if(scan(whitespace, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       unit = open (filename, "w")
+      fout = filename
 
       !! Write the header if non-empty
       ! prepend function may be replaced by use of replace_all but currently stdlib_strings
       ! is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
-      if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+      if (header_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+        
       do i = 1, size(d, 1)
           write(unit, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,&
-              trim(filename)
-           call error_stop(msg=trim(msgout))
+            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
+            call error_stop(msg=trim(msgout))
         end if           
-        
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+
       close (unit)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
@@ -1470,7 +1590,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       integer(int32), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1485,14 +1605,15 @@ contains
       !!```
       !!
       integer :: s, i, ios
-      character(len=1) :: delimiter_
-      character(len=3) :: delim_str
+      character(len=:), allocatable :: delimiter_
+      character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout
+      character(len=1024) :: iomsg, msgout, fout
+
       integer :: unit
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1501,29 +1622,58 @@ contains
       header_ = optval(header, '')
       footer_ = optval(footer, '')
 
+      if(index(delimiter_, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
+          call error_stop(msg=trim(msgout))
+      end if
+
+      if(scan(whitespace, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       unit = open (filename, "w")
+      fout = filename
 
       !! Write the header if non-empty
       ! prepend function may be replaced by use of replace_all but currently stdlib_strings
       ! is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
-      if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+      if (header_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+        
       do i = 1, size(d, 1)
           write(unit, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,&
-              trim(filename)
-           call error_stop(msg=trim(msgout))
+            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
+            call error_stop(msg=trim(msgout))
         end if           
-        
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+
       close (unit)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
@@ -1539,7 +1689,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       integer(int64), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1554,14 +1704,15 @@ contains
       !!```
       !!
       integer :: s, i, ios
-      character(len=1) :: delimiter_
-      character(len=3) :: delim_str
+      character(len=:), allocatable :: delimiter_
+      character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout
+      character(len=1024) :: iomsg, msgout, fout
+
       integer :: unit
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1570,29 +1721,58 @@ contains
       header_ = optval(header, '')
       footer_ = optval(footer, '')
 
+      if(index(delimiter_, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
+          call error_stop(msg=trim(msgout))
+      end if
+
+      if(scan(whitespace, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       unit = open (filename, "w")
+      fout = filename
 
       !! Write the header if non-empty
       ! prepend function may be replaced by use of replace_all but currently stdlib_strings
       ! is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
-      if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+      if (header_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+        
       do i = 1, size(d, 1)
           write(unit, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,&
-              trim(filename)
-           call error_stop(msg=trim(msgout))
+            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
+            call error_stop(msg=trim(msgout))
         end if           
-        
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+
       close (unit)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
@@ -1608,7 +1788,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       complex(sp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1623,14 +1803,15 @@ contains
       !!```
       !!
       integer :: s, i, ios
-      character(len=1) :: delimiter_
-      character(len=3) :: delim_str
+      character(len=:), allocatable :: delimiter_
+      character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout
+      character(len=1024) :: iomsg, msgout, fout
+
       integer :: unit
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1639,29 +1820,58 @@ contains
       header_ = optval(header, '')
       footer_ = optval(footer, '')
 
-        default_fmt = FMT_COMPLEX_sp(2:11)//delim_str//FMT_COMPLEX_sp (14:23)
+      if(index(delimiter_, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
+          call error_stop(msg=trim(msgout))
+      end if
+
+      if(scan(whitespace, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+
+        default_fmt = FMT_COMPLEX_sp(2:11)//delim_str//FMT_COMPLEX_sp(14:23)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       unit = open (filename, "w")
+      fout = filename
 
       !! Write the header if non-empty
       ! prepend function may be replaced by use of replace_all but currently stdlib_strings
       ! is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
-      if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+      if (header_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+        
       do i = 1, size(d, 1)
           write(unit, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,&
-              trim(filename)
-           call error_stop(msg=trim(msgout))
+            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
+            call error_stop(msg=trim(msgout))
         end if           
-        
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+
       close (unit)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
@@ -1677,7 +1887,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       complex(dp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1692,14 +1902,15 @@ contains
       !!```
       !!
       integer :: s, i, ios
-      character(len=1) :: delimiter_
-      character(len=3) :: delim_str
+      character(len=:), allocatable :: delimiter_
+      character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout
+      character(len=1024) :: iomsg, msgout, fout
+
       integer :: unit
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1708,29 +1919,58 @@ contains
       header_ = optval(header, '')
       footer_ = optval(footer, '')
 
-        default_fmt = FMT_COMPLEX_dp(2:11)//delim_str//FMT_COMPLEX_dp (14:23)
+      if(index(delimiter_, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
+          call error_stop(msg=trim(msgout))
+      end if
+
+      if(scan(whitespace, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+
+        default_fmt = FMT_COMPLEX_dp(2:11)//delim_str//FMT_COMPLEX_dp(14:23)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       unit = open (filename, "w")
+      fout = filename
 
       !! Write the header if non-empty
       ! prepend function may be replaced by use of replace_all but currently stdlib_strings
       ! is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
-      if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+      if (header_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+        
       do i = 1, size(d, 1)
           write(unit, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,&
-              trim(filename)
-           call error_stop(msg=trim(msgout))
+            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
+            call error_stop(msg=trim(msgout))
         end if           
-        
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+
       close (unit)
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
@@ -1746,7 +1986,7 @@ contains
       !!
       integer, intent(in) :: unit
       real(sp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1761,14 +2001,15 @@ contains
       !!```
       !!
       integer :: s, i, ios
-      character(len=1) :: delimiter_
-      character(len=3) :: delim_str
+      character(len=:), allocatable :: delimiter_
+      character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout
+      character(len=1024) :: iomsg, msgout, fout
+
       logical :: opened
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1777,10 +2018,28 @@ contains
       header_ = optval(header, '')
       footer_ = optval(footer, '')
 
+      if(index(delimiter_, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
+          call error_stop(msg=trim(msgout))
+      end if
+
+      if(scan(whitespace, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+
         default_fmt = FMT_REAL_sp(2:len(FMT_REAL_sp)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       inquire (unit=unit, opened=opened)
+      write(fout,'(i0)') unit
+      fout = adjustl(fout)
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
       end if
@@ -1789,22 +2048,34 @@ contains
       ! prepend function may be replaced by use of replace_all but currently stdlib_strings
       ! is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
-      if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+      if (header_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+        
       do i = 1, size(d, 1)
           write(unit, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,&
-              unit
-           call error_stop(msg=trim(msgout))
+            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
+            call error_stop(msg=trim(msgout))
         end if           
-        
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
 
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
+
+      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_rspu
     subroutine savetxt_rdpu (unit, d, delimiter, fmt, header, footer, comments)
@@ -1817,7 +2088,7 @@ contains
       !!
       integer, intent(in) :: unit
       real(dp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1832,14 +2103,15 @@ contains
       !!```
       !!
       integer :: s, i, ios
-      character(len=1) :: delimiter_
-      character(len=3) :: delim_str
+      character(len=:), allocatable :: delimiter_
+      character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout
+      character(len=1024) :: iomsg, msgout, fout
+
       logical :: opened
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1848,10 +2120,28 @@ contains
       header_ = optval(header, '')
       footer_ = optval(footer, '')
 
+      if(index(delimiter_, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
+          call error_stop(msg=trim(msgout))
+      end if
+
+      if(scan(whitespace, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+
         default_fmt = FMT_REAL_dp(2:len(FMT_REAL_dp)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       inquire (unit=unit, opened=opened)
+      write(fout,'(i0)') unit
+      fout = adjustl(fout)
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
       end if
@@ -1860,22 +2150,34 @@ contains
       ! prepend function may be replaced by use of replace_all but currently stdlib_strings
       ! is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
-      if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+      if (header_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+        
       do i = 1, size(d, 1)
           write(unit, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,&
-              unit
-           call error_stop(msg=trim(msgout))
+            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
+            call error_stop(msg=trim(msgout))
         end if           
-        
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
 
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
+
+      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_rdpu
     subroutine savetxt_iint8u (unit, d, delimiter, fmt, header, footer, comments)
@@ -1888,7 +2190,7 @@ contains
       !!
       integer, intent(in) :: unit
       integer(int8), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1903,14 +2205,15 @@ contains
       !!```
       !!
       integer :: s, i, ios
-      character(len=1) :: delimiter_
-      character(len=3) :: delim_str
+      character(len=:), allocatable :: delimiter_
+      character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout
+      character(len=1024) :: iomsg, msgout, fout
+
       logical :: opened
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1919,10 +2222,28 @@ contains
       header_ = optval(header, '')
       footer_ = optval(footer, '')
 
+      if(index(delimiter_, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
+          call error_stop(msg=trim(msgout))
+      end if
+
+      if(scan(whitespace, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       inquire (unit=unit, opened=opened)
+      write(fout,'(i0)') unit
+      fout = adjustl(fout)
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
       end if
@@ -1931,22 +2252,34 @@ contains
       ! prepend function may be replaced by use of replace_all but currently stdlib_strings
       ! is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
-      if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+      if (header_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+        
       do i = 1, size(d, 1)
           write(unit, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,&
-              unit
-           call error_stop(msg=trim(msgout))
+            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
+            call error_stop(msg=trim(msgout))
         end if           
-        
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
 
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
+
+      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_iint8u
     subroutine savetxt_iint16u (unit, d, delimiter, fmt, header, footer, comments)
@@ -1959,7 +2292,7 @@ contains
       !!
       integer, intent(in) :: unit
       integer(int16), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -1974,14 +2307,15 @@ contains
       !!```
       !!
       integer :: s, i, ios
-      character(len=1) :: delimiter_
-      character(len=3) :: delim_str
+      character(len=:), allocatable :: delimiter_
+      character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout
+      character(len=1024) :: iomsg, msgout, fout
+
       logical :: opened
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1990,10 +2324,28 @@ contains
       header_ = optval(header, '')
       footer_ = optval(footer, '')
 
+      if(index(delimiter_, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
+          call error_stop(msg=trim(msgout))
+      end if
+
+      if(scan(whitespace, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       inquire (unit=unit, opened=opened)
+      write(fout,'(i0)') unit
+      fout = adjustl(fout)
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
       end if
@@ -2002,22 +2354,34 @@ contains
       ! prepend function may be replaced by use of replace_all but currently stdlib_strings
       ! is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
-      if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+      if (header_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+        
       do i = 1, size(d, 1)
           write(unit, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,&
-              unit
-           call error_stop(msg=trim(msgout))
+            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
+            call error_stop(msg=trim(msgout))
         end if           
-        
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
 
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
+
+      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_iint16u
     subroutine savetxt_iint32u (unit, d, delimiter, fmt, header, footer, comments)
@@ -2030,7 +2394,7 @@ contains
       !!
       integer, intent(in) :: unit
       integer(int32), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -2045,14 +2409,15 @@ contains
       !!```
       !!
       integer :: s, i, ios
-      character(len=1) :: delimiter_
-      character(len=3) :: delim_str
+      character(len=:), allocatable :: delimiter_
+      character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout
+      character(len=1024) :: iomsg, msgout, fout
+
       logical :: opened
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -2061,10 +2426,28 @@ contains
       header_ = optval(header, '')
       footer_ = optval(footer, '')
 
+      if(index(delimiter_, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
+          call error_stop(msg=trim(msgout))
+      end if
+
+      if(scan(whitespace, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       inquire (unit=unit, opened=opened)
+      write(fout,'(i0)') unit
+      fout = adjustl(fout)
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
       end if
@@ -2073,22 +2456,34 @@ contains
       ! prepend function may be replaced by use of replace_all but currently stdlib_strings
       ! is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
-      if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+      if (header_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+        
       do i = 1, size(d, 1)
           write(unit, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,&
-              unit
-           call error_stop(msg=trim(msgout))
+            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
+            call error_stop(msg=trim(msgout))
         end if           
-        
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
 
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
+
+      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_iint32u
     subroutine savetxt_iint64u (unit, d, delimiter, fmt, header, footer, comments)
@@ -2101,7 +2496,7 @@ contains
       !!
       integer, intent(in) :: unit
       integer(int64), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -2116,14 +2511,15 @@ contains
       !!```
       !!
       integer :: s, i, ios
-      character(len=1) :: delimiter_
-      character(len=3) :: delim_str
+      character(len=:), allocatable :: delimiter_
+      character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout
+      character(len=1024) :: iomsg, msgout, fout
+
       logical :: opened
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -2132,10 +2528,28 @@ contains
       header_ = optval(header, '')
       footer_ = optval(footer, '')
 
+      if(index(delimiter_, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
+          call error_stop(msg=trim(msgout))
+      end if
+
+      if(scan(whitespace, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       inquire (unit=unit, opened=opened)
+      write(fout,'(i0)') unit
+      fout = adjustl(fout)
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
       end if
@@ -2144,22 +2558,34 @@ contains
       ! prepend function may be replaced by use of replace_all but currently stdlib_strings
       ! is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
-      if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+      if (header_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+        
       do i = 1, size(d, 1)
           write(unit, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,&
-              unit
-           call error_stop(msg=trim(msgout))
+            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
+            call error_stop(msg=trim(msgout))
         end if           
-        
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
 
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
+
+      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_iint64u
     subroutine savetxt_cspu (unit, d, delimiter, fmt, header, footer, comments)
@@ -2172,7 +2598,7 @@ contains
       !!
       integer, intent(in) :: unit
       complex(sp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -2187,14 +2613,15 @@ contains
       !!```
       !!
       integer :: s, i, ios
-      character(len=1) :: delimiter_
-      character(len=3) :: delim_str
+      character(len=:), allocatable :: delimiter_
+      character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout
+      character(len=1024) :: iomsg, msgout, fout
+
       logical :: opened
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -2203,10 +2630,28 @@ contains
       header_ = optval(header, '')
       footer_ = optval(footer, '')
 
-        default_fmt = FMT_COMPLEX_sp(2:11)//delim_str//FMT_COMPLEX_sp (14:23)
+      if(index(delimiter_, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
+          call error_stop(msg=trim(msgout))
+      end if
+
+      if(scan(whitespace, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+
+        default_fmt = FMT_COMPLEX_sp(2:11)//delim_str//FMT_COMPLEX_sp(14:23)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       inquire (unit=unit, opened=opened)
+      write(fout,'(i0)') unit
+      fout = adjustl(fout)
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
       end if
@@ -2215,22 +2660,34 @@ contains
       ! prepend function may be replaced by use of replace_all but currently stdlib_strings
       ! is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
-      if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+      if (header_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+        
       do i = 1, size(d, 1)
           write(unit, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,&
-              unit
-           call error_stop(msg=trim(msgout))
+            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
+            call error_stop(msg=trim(msgout))
         end if           
-        
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
 
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
+
+      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_cspu
     subroutine savetxt_cdpu (unit, d, delimiter, fmt, header, footer, comments)
@@ -2243,7 +2700,7 @@ contains
       !!
       integer, intent(in) :: unit
       complex(dp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
+      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
       character(len=*), intent(in), optional :: header  !< If present, text to write before data.
       character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
@@ -2258,14 +2715,15 @@ contains
       !!```
       !!
       integer :: s, i, ios
-      character(len=1) :: delimiter_
-      character(len=3) :: delim_str
+      character(len=:), allocatable :: delimiter_
+      character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
       character(len=:), allocatable :: fmt_
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout
+      character(len=1024) :: iomsg, msgout, fout
+
       logical :: opened
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -2274,10 +2732,28 @@ contains
       header_ = optval(header, '')
       footer_ = optval(footer, '')
 
-        default_fmt = FMT_COMPLEX_dp(2:11)//delim_str//FMT_COMPLEX_dp (14:23)
+      if(index(delimiter_, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
+          call error_stop(msg=trim(msgout))
+      end if
+
+      if(scan(whitespace, comments_) /= 0) then
+          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
+          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
+          call error_stop(msg=trim(msgout))
+      end if
+        
+
+        default_fmt = FMT_COMPLEX_dp(2:11)//delim_str//FMT_COMPLEX_dp(14:23)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       inquire (unit=unit, opened=opened)
+      write(fout,'(i0)') unit
+      fout = adjustl(fout)
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
       end if
@@ -2286,32 +2762,48 @@ contains
       ! prepend function may be replaced by use of replace_all but currently stdlib_strings
       ! is being compiled after stdlib_io
       ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
-      if (header_ /= '') write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+      if (header_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
+        
       do i = 1, size(d, 1)
           write(unit, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,&
-              unit
-           call error_stop(msg=trim(msgout))
+            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
+            call error_stop(msg=trim(msgout))
         end if           
-        
       end do
       ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
-      if (footer_ /= '') write (unit, '(A)') prepend(footer_, comments_)
+      if (footer_ /= '') then
+          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
+          if (ios/=0) then
+              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
+              call error_stop(msg=trim(msgout))
+          end if           
+      end if
 
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of unit ',i0,'.')
+
+      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_cdpu
   pure function prepend(Sin, comment) result(Sout)
     character(len=*), intent(in) :: Sin
     character(len=:), allocatable :: Sout
     character(len=*), intent(in) :: comment 
-    character(len=len(comment)+2) :: com_
+    character(len=len(comment)+1) :: com_
     integer :: bol, eol       ! indexes of beginning and end of line
 
-    ! IF (trim(Sin) == '') return
+    if (trim(Sin) == '') then
+        Sout = ''
+        return
+    end if
+    
     com_ = comment//" "
     bol = 1
     Sout = com_              ! Initialize to comment the first line
