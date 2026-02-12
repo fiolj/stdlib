@@ -1246,12 +1246,9 @@ contains
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       unit = open (filename, "w")
-      fout = filename
+      fout = filename           ! fout is used for unified error message later
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
-      ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -1345,12 +1342,9 @@ contains
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       unit = open (filename, "w")
-      fout = filename
+      fout = filename           ! fout is used for unified error message later
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
-      ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -1444,12 +1438,9 @@ contains
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       unit = open (filename, "w")
-      fout = filename
+      fout = filename           ! fout is used for unified error message later
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
-      ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -1543,12 +1534,9 @@ contains
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       unit = open (filename, "w")
-      fout = filename
+      fout = filename           ! fout is used for unified error message later
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
-      ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -1642,12 +1630,9 @@ contains
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       unit = open (filename, "w")
-      fout = filename
+      fout = filename           ! fout is used for unified error message later
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
-      ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -1741,12 +1726,9 @@ contains
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       unit = open (filename, "w")
-      fout = filename
+      fout = filename           ! fout is used for unified error message later
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
-      ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -1840,12 +1822,9 @@ contains
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       unit = open (filename, "w")
-      fout = filename
+      fout = filename           ! fout is used for unified error message later
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
-      ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -1939,12 +1918,9 @@ contains
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       unit = open (filename, "w")
-      fout = filename
+      fout = filename           ! fout is used for unified error message later
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
-      ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -2039,15 +2015,13 @@ contains
 
       inquire (unit=unit, opened=opened)
       write(fout,'(i0)') unit
-      fout = adjustl(fout)
+      fout = adjustl(fout)  ! fout is used for unified error message later
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
+           call error_stop(msg=trim(msgout))
       end if
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
-      ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -2141,15 +2115,13 @@ contains
 
       inquire (unit=unit, opened=opened)
       write(fout,'(i0)') unit
-      fout = adjustl(fout)
+      fout = adjustl(fout)  ! fout is used for unified error message later
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
+           call error_stop(msg=trim(msgout))
       end if
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
-      ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -2243,15 +2215,13 @@ contains
 
       inquire (unit=unit, opened=opened)
       write(fout,'(i0)') unit
-      fout = adjustl(fout)
+      fout = adjustl(fout)  ! fout is used for unified error message later
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
+           call error_stop(msg=trim(msgout))
       end if
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
-      ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -2345,15 +2315,13 @@ contains
 
       inquire (unit=unit, opened=opened)
       write(fout,'(i0)') unit
-      fout = adjustl(fout)
+      fout = adjustl(fout)  ! fout is used for unified error message later
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
+           call error_stop(msg=trim(msgout))
       end if
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
-      ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -2447,15 +2415,13 @@ contains
 
       inquire (unit=unit, opened=opened)
       write(fout,'(i0)') unit
-      fout = adjustl(fout)
+      fout = adjustl(fout)  ! fout is used for unified error message later
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
+           call error_stop(msg=trim(msgout))
       end if
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
-      ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -2549,15 +2515,13 @@ contains
 
       inquire (unit=unit, opened=opened)
       write(fout,'(i0)') unit
-      fout = adjustl(fout)
+      fout = adjustl(fout)  ! fout is used for unified error message later
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
+           call error_stop(msg=trim(msgout))
       end if
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
-      ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -2651,15 +2615,13 @@ contains
 
       inquire (unit=unit, opened=opened)
       write(fout,'(i0)') unit
-      fout = adjustl(fout)
+      fout = adjustl(fout)  ! fout is used for unified error message later
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
+           call error_stop(msg=trim(msgout))
       end if
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
-      ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -2753,15 +2715,13 @@ contains
 
       inquire (unit=unit, opened=opened)
       write(fout,'(i0)') unit
-      fout = adjustl(fout)
+      fout = adjustl(fout)  ! fout is used for unified error message later
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
+           call error_stop(msg=trim(msgout))
       end if
 
       !! Write the header if non-empty
-      ! prepend function may be replaced by use of replace_all but currently stdlib_strings
-      ! is being compiled after stdlib_io
-      ! if (header_ /= '') write (unit, '(A)') comments_//replace_all(header_, nl, nl//comments_)
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
