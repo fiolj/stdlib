@@ -1208,7 +1208,7 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: s, i, ios
+      integer :: i, ios
       character(len=:), allocatable :: delimiter_
       character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
@@ -1307,7 +1307,7 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: s, i, ios
+      integer :: i, ios
       character(len=:), allocatable :: delimiter_
       character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
@@ -1406,7 +1406,7 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: s, i, ios
+      integer :: i, ios
       character(len=:), allocatable :: delimiter_
       character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
@@ -1505,7 +1505,7 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: s, i, ios
+      integer :: i, ios
       character(len=:), allocatable :: delimiter_
       character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
@@ -1604,7 +1604,7 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: s, i, ios
+      integer :: i, ios
       character(len=:), allocatable :: delimiter_
       character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
@@ -1703,7 +1703,7 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: s, i, ios
+      integer :: i, ios
       character(len=:), allocatable :: delimiter_
       character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
@@ -1802,7 +1802,7 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: s, i, ios
+      integer :: i, ios
       character(len=:), allocatable :: delimiter_
       character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
@@ -1901,7 +1901,7 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: s, i, ios
+      integer :: i, ios
       character(len=:), allocatable :: delimiter_
       character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
@@ -2000,7 +2000,7 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: s, i, ios
+      integer :: i, ios
       character(len=:), allocatable :: delimiter_
       character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
@@ -2102,7 +2102,7 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: s, i, ios
+      integer :: i, ios
       character(len=:), allocatable :: delimiter_
       character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
@@ -2204,7 +2204,7 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: s, i, ios
+      integer :: i, ios
       character(len=:), allocatable :: delimiter_
       character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
@@ -2306,7 +2306,7 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: s, i, ios
+      integer :: i, ios
       character(len=:), allocatable :: delimiter_
       character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
@@ -2408,7 +2408,7 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: s, i, ios
+      integer :: i, ios
       character(len=:), allocatable :: delimiter_
       character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
@@ -2510,7 +2510,7 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: s, i, ios
+      integer :: i, ios
       character(len=:), allocatable :: delimiter_
       character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
@@ -2612,7 +2612,7 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: s, i, ios
+      integer :: i, ios
       character(len=:), allocatable :: delimiter_
       character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
@@ -2714,7 +2714,7 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: s, i, ios
+      integer :: i, ios
       character(len=:), allocatable :: delimiter_
       character(len=:), allocatable :: delim_str
       character(len=:), allocatable :: default_fmt
