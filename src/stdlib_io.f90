@@ -1222,6 +1222,8 @@ contains
       !
       logical :: append_
       integer :: unit
+      logical :: opened
+      character(len=7) :: writable
       character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1250,10 +1252,20 @@ contains
         default_fmt = FMT_REAL_sp(2:len(FMT_REAL_sp)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      if(append_) then
-          unit = open (filename, "a+")
+      ! Check if it is opened 
+      inquire (file=filename, opened=opened)
+      if(.not. opened) then
+          if(append_) then
+              unit = open (filename, "a+")
           else
-          unit = open (filename, "w")
+              unit = open (filename, "w")
+          end if
+      else
+          inquire(file=filename, number=unit, write=writable)
+          if ((unit == -1) .or. (writable(1:1) /= 'Y')) then
+              write (msgout,'(a)') 'savetxt error: file '//filename//' not open for writing'
+              call error_stop(msg=trim(msgout))
+          end if
       end if
       fout = filename           ! fout is used for unified error message later
 
@@ -1284,7 +1296,7 @@ contains
           end if           
       end if
 
-      close (unit)
+      if (.not. opened)  close(unit) ! Only close if opened in the routine
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
@@ -1327,6 +1339,8 @@ contains
       !
       logical :: append_
       integer :: unit
+      logical :: opened
+      character(len=7) :: writable
       character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1355,10 +1369,20 @@ contains
         default_fmt = FMT_REAL_dp(2:len(FMT_REAL_dp)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      if(append_) then
-          unit = open (filename, "a+")
+      ! Check if it is opened 
+      inquire (file=filename, opened=opened)
+      if(.not. opened) then
+          if(append_) then
+              unit = open (filename, "a+")
           else
-          unit = open (filename, "w")
+              unit = open (filename, "w")
+          end if
+      else
+          inquire(file=filename, number=unit, write=writable)
+          if ((unit == -1) .or. (writable(1:1) /= 'Y')) then
+              write (msgout,'(a)') 'savetxt error: file '//filename//' not open for writing'
+              call error_stop(msg=trim(msgout))
+          end if
       end if
       fout = filename           ! fout is used for unified error message later
 
@@ -1389,7 +1413,7 @@ contains
           end if           
       end if
 
-      close (unit)
+      if (.not. opened)  close(unit) ! Only close if opened in the routine
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
@@ -1432,6 +1456,8 @@ contains
       !
       logical :: append_
       integer :: unit
+      logical :: opened
+      character(len=7) :: writable
       character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1460,10 +1486,20 @@ contains
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      if(append_) then
-          unit = open (filename, "a+")
+      ! Check if it is opened 
+      inquire (file=filename, opened=opened)
+      if(.not. opened) then
+          if(append_) then
+              unit = open (filename, "a+")
           else
-          unit = open (filename, "w")
+              unit = open (filename, "w")
+          end if
+      else
+          inquire(file=filename, number=unit, write=writable)
+          if ((unit == -1) .or. (writable(1:1) /= 'Y')) then
+              write (msgout,'(a)') 'savetxt error: file '//filename//' not open for writing'
+              call error_stop(msg=trim(msgout))
+          end if
       end if
       fout = filename           ! fout is used for unified error message later
 
@@ -1494,7 +1530,7 @@ contains
           end if           
       end if
 
-      close (unit)
+      if (.not. opened)  close(unit) ! Only close if opened in the routine
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
@@ -1537,6 +1573,8 @@ contains
       !
       logical :: append_
       integer :: unit
+      logical :: opened
+      character(len=7) :: writable
       character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1565,10 +1603,20 @@ contains
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      if(append_) then
-          unit = open (filename, "a+")
+      ! Check if it is opened 
+      inquire (file=filename, opened=opened)
+      if(.not. opened) then
+          if(append_) then
+              unit = open (filename, "a+")
           else
-          unit = open (filename, "w")
+              unit = open (filename, "w")
+          end if
+      else
+          inquire(file=filename, number=unit, write=writable)
+          if ((unit == -1) .or. (writable(1:1) /= 'Y')) then
+              write (msgout,'(a)') 'savetxt error: file '//filename//' not open for writing'
+              call error_stop(msg=trim(msgout))
+          end if
       end if
       fout = filename           ! fout is used for unified error message later
 
@@ -1599,7 +1647,7 @@ contains
           end if           
       end if
 
-      close (unit)
+      if (.not. opened)  close(unit) ! Only close if opened in the routine
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
@@ -1642,6 +1690,8 @@ contains
       !
       logical :: append_
       integer :: unit
+      logical :: opened
+      character(len=7) :: writable
       character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1670,10 +1720,20 @@ contains
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      if(append_) then
-          unit = open (filename, "a+")
+      ! Check if it is opened 
+      inquire (file=filename, opened=opened)
+      if(.not. opened) then
+          if(append_) then
+              unit = open (filename, "a+")
           else
-          unit = open (filename, "w")
+              unit = open (filename, "w")
+          end if
+      else
+          inquire(file=filename, number=unit, write=writable)
+          if ((unit == -1) .or. (writable(1:1) /= 'Y')) then
+              write (msgout,'(a)') 'savetxt error: file '//filename//' not open for writing'
+              call error_stop(msg=trim(msgout))
+          end if
       end if
       fout = filename           ! fout is used for unified error message later
 
@@ -1704,7 +1764,7 @@ contains
           end if           
       end if
 
-      close (unit)
+      if (.not. opened)  close(unit) ! Only close if opened in the routine
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
@@ -1747,6 +1807,8 @@ contains
       !
       logical :: append_
       integer :: unit
+      logical :: opened
+      character(len=7) :: writable
       character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1775,10 +1837,20 @@ contains
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      if(append_) then
-          unit = open (filename, "a+")
+      ! Check if it is opened 
+      inquire (file=filename, opened=opened)
+      if(.not. opened) then
+          if(append_) then
+              unit = open (filename, "a+")
           else
-          unit = open (filename, "w")
+              unit = open (filename, "w")
+          end if
+      else
+          inquire(file=filename, number=unit, write=writable)
+          if ((unit == -1) .or. (writable(1:1) /= 'Y')) then
+              write (msgout,'(a)') 'savetxt error: file '//filename//' not open for writing'
+              call error_stop(msg=trim(msgout))
+          end if
       end if
       fout = filename           ! fout is used for unified error message later
 
@@ -1809,7 +1881,7 @@ contains
           end if           
       end if
 
-      close (unit)
+      if (.not. opened)  close(unit) ! Only close if opened in the routine
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
@@ -1852,6 +1924,8 @@ contains
       !
       logical :: append_
       integer :: unit
+      logical :: opened
+      character(len=7) :: writable
       character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1880,10 +1954,20 @@ contains
         default_fmt = FMT_COMPLEX_sp(2:11)//delim_str//FMT_COMPLEX_sp(14:23)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      if(append_) then
-          unit = open (filename, "a+")
+      ! Check if it is opened 
+      inquire (file=filename, opened=opened)
+      if(.not. opened) then
+          if(append_) then
+              unit = open (filename, "a+")
           else
-          unit = open (filename, "w")
+              unit = open (filename, "w")
+          end if
+      else
+          inquire(file=filename, number=unit, write=writable)
+          if ((unit == -1) .or. (writable(1:1) /= 'Y')) then
+              write (msgout,'(a)') 'savetxt error: file '//filename//' not open for writing'
+              call error_stop(msg=trim(msgout))
+          end if
       end if
       fout = filename           ! fout is used for unified error message later
 
@@ -1914,7 +1998,7 @@ contains
           end if           
       end if
 
-      close (unit)
+      if (.not. opened)  close(unit) ! Only close if opened in the routine
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
@@ -1957,6 +2041,8 @@ contains
       !
       logical :: append_
       integer :: unit
+      logical :: opened
+      character(len=7) :: writable
       character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -1985,10 +2071,20 @@ contains
         default_fmt = FMT_COMPLEX_dp(2:11)//delim_str//FMT_COMPLEX_dp(14:23)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      if(append_) then
-          unit = open (filename, "a+")
+      ! Check if it is opened 
+      inquire (file=filename, opened=opened)
+      if(.not. opened) then
+          if(append_) then
+              unit = open (filename, "a+")
           else
-          unit = open (filename, "w")
+              unit = open (filename, "w")
+          end if
+      else
+          inquire(file=filename, number=unit, write=writable)
+          if ((unit == -1) .or. (writable(1:1) /= 'Y')) then
+              write (msgout,'(a)') 'savetxt error: file '//filename//' not open for writing'
+              call error_stop(msg=trim(msgout))
+          end if
       end if
       fout = filename           ! fout is used for unified error message later
 
@@ -2019,7 +2115,7 @@ contains
           end if           
       end if
 
-      close (unit)
+      if (.not. opened)  close(unit) ! Only close if opened in the routine
 
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
@@ -2059,6 +2155,7 @@ contains
       character(len=:), allocatable :: footer_
       !
       logical :: opened
+      character(len=7) :: writable
       character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -2086,10 +2183,10 @@ contains
         default_fmt = FMT_REAL_sp(2:len(FMT_REAL_sp)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      inquire (unit=unit, opened=opened)
-      if(.not. opened) then
-           write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
-           call error_stop(msg=trim(msgout))
+      inquire (unit=unit, opened=opened, write=writable)
+      if((.not. opened) .or. (writable(1:1) /= 'Y')) then
+          write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open for writing'
+          call error_stop(msg=trim(msgout))
       end if
       !
       write(fout,'(i0)') unit
@@ -2161,6 +2258,7 @@ contains
       character(len=:), allocatable :: footer_
       !
       logical :: opened
+      character(len=7) :: writable
       character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -2188,10 +2286,10 @@ contains
         default_fmt = FMT_REAL_dp(2:len(FMT_REAL_dp)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      inquire (unit=unit, opened=opened)
-      if(.not. opened) then
-           write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
-           call error_stop(msg=trim(msgout))
+      inquire (unit=unit, opened=opened, write=writable)
+      if((.not. opened) .or. (writable(1:1) /= 'Y')) then
+          write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open for writing'
+          call error_stop(msg=trim(msgout))
       end if
       !
       write(fout,'(i0)') unit
@@ -2263,6 +2361,7 @@ contains
       character(len=:), allocatable :: footer_
       !
       logical :: opened
+      character(len=7) :: writable
       character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -2290,10 +2389,10 @@ contains
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      inquire (unit=unit, opened=opened)
-      if(.not. opened) then
-           write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
-           call error_stop(msg=trim(msgout))
+      inquire (unit=unit, opened=opened, write=writable)
+      if((.not. opened) .or. (writable(1:1) /= 'Y')) then
+          write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open for writing'
+          call error_stop(msg=trim(msgout))
       end if
       !
       write(fout,'(i0)') unit
@@ -2365,6 +2464,7 @@ contains
       character(len=:), allocatable :: footer_
       !
       logical :: opened
+      character(len=7) :: writable
       character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -2392,10 +2492,10 @@ contains
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      inquire (unit=unit, opened=opened)
-      if(.not. opened) then
-           write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
-           call error_stop(msg=trim(msgout))
+      inquire (unit=unit, opened=opened, write=writable)
+      if((.not. opened) .or. (writable(1:1) /= 'Y')) then
+          write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open for writing'
+          call error_stop(msg=trim(msgout))
       end if
       !
       write(fout,'(i0)') unit
@@ -2467,6 +2567,7 @@ contains
       character(len=:), allocatable :: footer_
       !
       logical :: opened
+      character(len=7) :: writable
       character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -2494,10 +2595,10 @@ contains
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      inquire (unit=unit, opened=opened)
-      if(.not. opened) then
-           write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
-           call error_stop(msg=trim(msgout))
+      inquire (unit=unit, opened=opened, write=writable)
+      if((.not. opened) .or. (writable(1:1) /= 'Y')) then
+          write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open for writing'
+          call error_stop(msg=trim(msgout))
       end if
       !
       write(fout,'(i0)') unit
@@ -2569,6 +2670,7 @@ contains
       character(len=:), allocatable :: footer_
       !
       logical :: opened
+      character(len=7) :: writable
       character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -2596,10 +2698,10 @@ contains
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      inquire (unit=unit, opened=opened)
-      if(.not. opened) then
-           write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
-           call error_stop(msg=trim(msgout))
+      inquire (unit=unit, opened=opened, write=writable)
+      if((.not. opened) .or. (writable(1:1) /= 'Y')) then
+          write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open for writing'
+          call error_stop(msg=trim(msgout))
       end if
       !
       write(fout,'(i0)') unit
@@ -2671,6 +2773,7 @@ contains
       character(len=:), allocatable :: footer_
       !
       logical :: opened
+      character(len=7) :: writable
       character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -2698,10 +2801,10 @@ contains
         default_fmt = FMT_COMPLEX_sp(2:11)//delim_str//FMT_COMPLEX_sp(14:23)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      inquire (unit=unit, opened=opened)
-      if(.not. opened) then
-           write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
-           call error_stop(msg=trim(msgout))
+      inquire (unit=unit, opened=opened, write=writable)
+      if((.not. opened) .or. (writable(1:1) /= 'Y')) then
+          write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open for writing'
+          call error_stop(msg=trim(msgout))
       end if
       !
       write(fout,'(i0)') unit
@@ -2773,6 +2876,7 @@ contains
       character(len=:), allocatable :: footer_
       !
       logical :: opened
+      character(len=7) :: writable
       character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
@@ -2800,10 +2904,10 @@ contains
         default_fmt = FMT_COMPLEX_dp(2:11)//delim_str//FMT_COMPLEX_dp(14:23)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      inquire (unit=unit, opened=opened)
-      if(.not. opened) then
-           write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
-           call error_stop(msg=trim(msgout))
+      inquire (unit=unit, opened=opened, write=writable)
+      if((.not. opened) .or. (writable(1:1) /= 'Y')) then
+          write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open for writing'
+          call error_stop(msg=trim(msgout))
       end if
       !
       write(fout,'(i0)') unit
