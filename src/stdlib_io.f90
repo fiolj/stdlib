@@ -1184,7 +1184,9 @@ contains
 
     end subroutine loadtxt_cdp
 
-    subroutine savetxt_rspf (filename, d, delimiter, fmt, header, footer, comments)
+    subroutine savetxt_rspf (filename, d, delimiter, fmt, header, footer, comments&
+      , append&
+      )
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -1193,6 +1195,7 @@ contains
       !! ---------
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
+      logical, intent(in), optional :: append
       real(sp), intent(in) :: d(:,:)           ! The 2D array to save
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
@@ -1216,15 +1219,17 @@ contains
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout, fout
-
+      !
+      logical :: append_
       integer :: unit
+      character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
       comments_ = optval(comments, comment_default)
-      header_ = optval(header, '')
-      footer_ = optval(footer, '')
+      header_ = optval(trim(header), '')
+      footer_ = optval(trim(footer), '')
+      append_ = optval(append, .False.)
 
       if(index(delimiter_, comments_) /= 0) then
           write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
@@ -1245,10 +1250,14 @@ contains
         default_fmt = FMT_REAL_sp(2:len(FMT_REAL_sp)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      unit = open (filename, "w")
+      if(append_) then
+          unit = open (filename, "a+")
+          else
+          unit = open (filename, "w")
+      end if
       fout = filename           ! fout is used for unified error message later
 
-      !! Write the header if non-empty
+      ! Write the header if non-empty
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -1266,7 +1275,7 @@ contains
             call error_stop(msg=trim(msgout))
         end if           
       end do
-      ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+
       if (footer_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
           if (ios/=0) then
@@ -1280,7 +1289,9 @@ contains
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_rspf
-    subroutine savetxt_rdpf (filename, d, delimiter, fmt, header, footer, comments)
+    subroutine savetxt_rdpf (filename, d, delimiter, fmt, header, footer, comments&
+      , append&
+      )
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -1289,6 +1300,7 @@ contains
       !! ---------
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
+      logical, intent(in), optional :: append
       real(dp), intent(in) :: d(:,:)           ! The 2D array to save
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
@@ -1312,15 +1324,17 @@ contains
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout, fout
-
+      !
+      logical :: append_
       integer :: unit
+      character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
       comments_ = optval(comments, comment_default)
-      header_ = optval(header, '')
-      footer_ = optval(footer, '')
+      header_ = optval(trim(header), '')
+      footer_ = optval(trim(footer), '')
+      append_ = optval(append, .False.)
 
       if(index(delimiter_, comments_) /= 0) then
           write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
@@ -1341,10 +1355,14 @@ contains
         default_fmt = FMT_REAL_dp(2:len(FMT_REAL_dp)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      unit = open (filename, "w")
+      if(append_) then
+          unit = open (filename, "a+")
+          else
+          unit = open (filename, "w")
+      end if
       fout = filename           ! fout is used for unified error message later
 
-      !! Write the header if non-empty
+      ! Write the header if non-empty
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -1362,7 +1380,7 @@ contains
             call error_stop(msg=trim(msgout))
         end if           
       end do
-      ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+
       if (footer_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
           if (ios/=0) then
@@ -1376,7 +1394,9 @@ contains
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_rdpf
-    subroutine savetxt_iint8f (filename, d, delimiter, fmt, header, footer, comments)
+    subroutine savetxt_iint8f (filename, d, delimiter, fmt, header, footer, comments&
+      , append&
+      )
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -1385,6 +1405,7 @@ contains
       !! ---------
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
+      logical, intent(in), optional :: append
       integer(int8), intent(in) :: d(:,:)           ! The 2D array to save
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
@@ -1408,15 +1429,17 @@ contains
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout, fout
-
+      !
+      logical :: append_
       integer :: unit
+      character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
       comments_ = optval(comments, comment_default)
-      header_ = optval(header, '')
-      footer_ = optval(footer, '')
+      header_ = optval(trim(header), '')
+      footer_ = optval(trim(footer), '')
+      append_ = optval(append, .False.)
 
       if(index(delimiter_, comments_) /= 0) then
           write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
@@ -1437,10 +1460,14 @@ contains
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      unit = open (filename, "w")
+      if(append_) then
+          unit = open (filename, "a+")
+          else
+          unit = open (filename, "w")
+      end if
       fout = filename           ! fout is used for unified error message later
 
-      !! Write the header if non-empty
+      ! Write the header if non-empty
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -1458,7 +1485,7 @@ contains
             call error_stop(msg=trim(msgout))
         end if           
       end do
-      ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+
       if (footer_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
           if (ios/=0) then
@@ -1472,7 +1499,9 @@ contains
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_iint8f
-    subroutine savetxt_iint16f (filename, d, delimiter, fmt, header, footer, comments)
+    subroutine savetxt_iint16f (filename, d, delimiter, fmt, header, footer, comments&
+      , append&
+      )
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -1481,6 +1510,7 @@ contains
       !! ---------
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
+      logical, intent(in), optional :: append
       integer(int16), intent(in) :: d(:,:)           ! The 2D array to save
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
@@ -1504,15 +1534,17 @@ contains
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout, fout
-
+      !
+      logical :: append_
       integer :: unit
+      character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
       comments_ = optval(comments, comment_default)
-      header_ = optval(header, '')
-      footer_ = optval(footer, '')
+      header_ = optval(trim(header), '')
+      footer_ = optval(trim(footer), '')
+      append_ = optval(append, .False.)
 
       if(index(delimiter_, comments_) /= 0) then
           write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
@@ -1533,10 +1565,14 @@ contains
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      unit = open (filename, "w")
+      if(append_) then
+          unit = open (filename, "a+")
+          else
+          unit = open (filename, "w")
+      end if
       fout = filename           ! fout is used for unified error message later
 
-      !! Write the header if non-empty
+      ! Write the header if non-empty
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -1554,7 +1590,7 @@ contains
             call error_stop(msg=trim(msgout))
         end if           
       end do
-      ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+
       if (footer_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
           if (ios/=0) then
@@ -1568,7 +1604,9 @@ contains
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_iint16f
-    subroutine savetxt_iint32f (filename, d, delimiter, fmt, header, footer, comments)
+    subroutine savetxt_iint32f (filename, d, delimiter, fmt, header, footer, comments&
+      , append&
+      )
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -1577,6 +1615,7 @@ contains
       !! ---------
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
+      logical, intent(in), optional :: append
       integer(int32), intent(in) :: d(:,:)           ! The 2D array to save
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
@@ -1600,15 +1639,17 @@ contains
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout, fout
-
+      !
+      logical :: append_
       integer :: unit
+      character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
       comments_ = optval(comments, comment_default)
-      header_ = optval(header, '')
-      footer_ = optval(footer, '')
+      header_ = optval(trim(header), '')
+      footer_ = optval(trim(footer), '')
+      append_ = optval(append, .False.)
 
       if(index(delimiter_, comments_) /= 0) then
           write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
@@ -1629,10 +1670,14 @@ contains
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      unit = open (filename, "w")
+      if(append_) then
+          unit = open (filename, "a+")
+          else
+          unit = open (filename, "w")
+      end if
       fout = filename           ! fout is used for unified error message later
 
-      !! Write the header if non-empty
+      ! Write the header if non-empty
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -1650,7 +1695,7 @@ contains
             call error_stop(msg=trim(msgout))
         end if           
       end do
-      ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+
       if (footer_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
           if (ios/=0) then
@@ -1664,7 +1709,9 @@ contains
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_iint32f
-    subroutine savetxt_iint64f (filename, d, delimiter, fmt, header, footer, comments)
+    subroutine savetxt_iint64f (filename, d, delimiter, fmt, header, footer, comments&
+      , append&
+      )
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -1673,6 +1720,7 @@ contains
       !! ---------
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
+      logical, intent(in), optional :: append
       integer(int64), intent(in) :: d(:,:)           ! The 2D array to save
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
@@ -1696,15 +1744,17 @@ contains
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout, fout
-
+      !
+      logical :: append_
       integer :: unit
+      character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
       comments_ = optval(comments, comment_default)
-      header_ = optval(header, '')
-      footer_ = optval(footer, '')
+      header_ = optval(trim(header), '')
+      footer_ = optval(trim(footer), '')
+      append_ = optval(append, .False.)
 
       if(index(delimiter_, comments_) /= 0) then
           write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
@@ -1725,10 +1775,14 @@ contains
         default_fmt = FMT_INT(2:len(FMT_INT)-1)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      unit = open (filename, "w")
+      if(append_) then
+          unit = open (filename, "a+")
+          else
+          unit = open (filename, "w")
+      end if
       fout = filename           ! fout is used for unified error message later
 
-      !! Write the header if non-empty
+      ! Write the header if non-empty
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -1746,7 +1800,7 @@ contains
             call error_stop(msg=trim(msgout))
         end if           
       end do
-      ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+
       if (footer_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
           if (ios/=0) then
@@ -1760,7 +1814,9 @@ contains
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_iint64f
-    subroutine savetxt_cspf (filename, d, delimiter, fmt, header, footer, comments)
+    subroutine savetxt_cspf (filename, d, delimiter, fmt, header, footer, comments&
+      , append&
+      )
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -1769,6 +1825,7 @@ contains
       !! ---------
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
+      logical, intent(in), optional :: append
       complex(sp), intent(in) :: d(:,:)           ! The 2D array to save
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
@@ -1792,15 +1849,17 @@ contains
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout, fout
-
+      !
+      logical :: append_
       integer :: unit
+      character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
       comments_ = optval(comments, comment_default)
-      header_ = optval(header, '')
-      footer_ = optval(footer, '')
+      header_ = optval(trim(header), '')
+      footer_ = optval(trim(footer), '')
+      append_ = optval(append, .False.)
 
       if(index(delimiter_, comments_) /= 0) then
           write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
@@ -1821,10 +1880,14 @@ contains
         default_fmt = FMT_COMPLEX_sp(2:11)//delim_str//FMT_COMPLEX_sp(14:23)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      unit = open (filename, "w")
+      if(append_) then
+          unit = open (filename, "a+")
+          else
+          unit = open (filename, "w")
+      end if
       fout = filename           ! fout is used for unified error message later
 
-      !! Write the header if non-empty
+      ! Write the header if non-empty
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -1842,7 +1905,7 @@ contains
             call error_stop(msg=trim(msgout))
         end if           
       end do
-      ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+
       if (footer_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
           if (ios/=0) then
@@ -1856,7 +1919,9 @@ contains
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_cspf
-    subroutine savetxt_cdpf (filename, d, delimiter, fmt, header, footer, comments)
+    subroutine savetxt_cdpf (filename, d, delimiter, fmt, header, footer, comments&
+      , append&
+      )
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -1865,6 +1930,7 @@ contains
       !! ---------
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
+      logical, intent(in), optional :: append
       complex(dp), intent(in) :: d(:,:)           ! The 2D array to save
       character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
       character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
@@ -1888,15 +1954,17 @@ contains
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout, fout
-
+      !
+      logical :: append_
       integer :: unit
+      character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
       comments_ = optval(comments, comment_default)
-      header_ = optval(header, '')
-      footer_ = optval(footer, '')
+      header_ = optval(trim(header), '')
+      footer_ = optval(trim(footer), '')
+      append_ = optval(append, .False.)
 
       if(index(delimiter_, comments_) /= 0) then
           write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
@@ -1917,10 +1985,14 @@ contains
         default_fmt = FMT_COMPLEX_dp(2:11)//delim_str//FMT_COMPLEX_dp(14:23)
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
-      unit = open (filename, "w")
+      if(append_) then
+          unit = open (filename, "a+")
+          else
+          unit = open (filename, "w")
+      end if
       fout = filename           ! fout is used for unified error message later
 
-      !! Write the header if non-empty
+      ! Write the header if non-empty
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -1938,7 +2010,7 @@ contains
             call error_stop(msg=trim(msgout))
         end if           
       end do
-      ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+
       if (footer_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
           if (ios/=0) then
@@ -1952,7 +2024,8 @@ contains
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_cdpf
-    subroutine savetxt_rspu (unit, d, delimiter, fmt, header, footer, comments)
+    subroutine savetxt_rspu (unit, d, delimiter, fmt, header, footer, comments&
+      )
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -1984,15 +2057,15 @@ contains
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout, fout
-
+      !
       logical :: opened
+      character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
       comments_ = optval(comments, comment_default)
-      header_ = optval(header, '')
-      footer_ = optval(footer, '')
+      header_ = optval(trim(header), '')
+      footer_ = optval(trim(footer), '')
 
       if(index(delimiter_, comments_) /= 0) then
           write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
@@ -2014,14 +2087,15 @@ contains
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       inquire (unit=unit, opened=opened)
-      write(fout,'(i0)') unit
-      fout = adjustl(fout)  ! fout is used for unified error message later
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
            call error_stop(msg=trim(msgout))
       end if
+      !
+      write(fout,'(i0)') unit
+      fout = adjustl(fout)  ! fout is used for unified error message later
 
-      !! Write the header if non-empty
+      ! Write the header if non-empty
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -2039,7 +2113,7 @@ contains
             call error_stop(msg=trim(msgout))
         end if           
       end do
-      ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+
       if (footer_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
           if (ios/=0) then
@@ -2052,7 +2126,8 @@ contains
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_rspu
-    subroutine savetxt_rdpu (unit, d, delimiter, fmt, header, footer, comments)
+    subroutine savetxt_rdpu (unit, d, delimiter, fmt, header, footer, comments&
+      )
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -2084,15 +2159,15 @@ contains
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout, fout
-
+      !
       logical :: opened
+      character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
       comments_ = optval(comments, comment_default)
-      header_ = optval(header, '')
-      footer_ = optval(footer, '')
+      header_ = optval(trim(header), '')
+      footer_ = optval(trim(footer), '')
 
       if(index(delimiter_, comments_) /= 0) then
           write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
@@ -2114,14 +2189,15 @@ contains
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       inquire (unit=unit, opened=opened)
-      write(fout,'(i0)') unit
-      fout = adjustl(fout)  ! fout is used for unified error message later
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
            call error_stop(msg=trim(msgout))
       end if
+      !
+      write(fout,'(i0)') unit
+      fout = adjustl(fout)  ! fout is used for unified error message later
 
-      !! Write the header if non-empty
+      ! Write the header if non-empty
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -2139,7 +2215,7 @@ contains
             call error_stop(msg=trim(msgout))
         end if           
       end do
-      ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+
       if (footer_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
           if (ios/=0) then
@@ -2152,7 +2228,8 @@ contains
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_rdpu
-    subroutine savetxt_iint8u (unit, d, delimiter, fmt, header, footer, comments)
+    subroutine savetxt_iint8u (unit, d, delimiter, fmt, header, footer, comments&
+      )
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -2184,15 +2261,15 @@ contains
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout, fout
-
+      !
       logical :: opened
+      character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
       comments_ = optval(comments, comment_default)
-      header_ = optval(header, '')
-      footer_ = optval(footer, '')
+      header_ = optval(trim(header), '')
+      footer_ = optval(trim(footer), '')
 
       if(index(delimiter_, comments_) /= 0) then
           write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
@@ -2214,14 +2291,15 @@ contains
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       inquire (unit=unit, opened=opened)
-      write(fout,'(i0)') unit
-      fout = adjustl(fout)  ! fout is used for unified error message later
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
            call error_stop(msg=trim(msgout))
       end if
+      !
+      write(fout,'(i0)') unit
+      fout = adjustl(fout)  ! fout is used for unified error message later
 
-      !! Write the header if non-empty
+      ! Write the header if non-empty
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -2239,7 +2317,7 @@ contains
             call error_stop(msg=trim(msgout))
         end if           
       end do
-      ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+
       if (footer_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
           if (ios/=0) then
@@ -2252,7 +2330,8 @@ contains
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_iint8u
-    subroutine savetxt_iint16u (unit, d, delimiter, fmt, header, footer, comments)
+    subroutine savetxt_iint16u (unit, d, delimiter, fmt, header, footer, comments&
+      )
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -2284,15 +2363,15 @@ contains
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout, fout
-
+      !
       logical :: opened
+      character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
       comments_ = optval(comments, comment_default)
-      header_ = optval(header, '')
-      footer_ = optval(footer, '')
+      header_ = optval(trim(header), '')
+      footer_ = optval(trim(footer), '')
 
       if(index(delimiter_, comments_) /= 0) then
           write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
@@ -2314,14 +2393,15 @@ contains
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       inquire (unit=unit, opened=opened)
-      write(fout,'(i0)') unit
-      fout = adjustl(fout)  ! fout is used for unified error message later
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
            call error_stop(msg=trim(msgout))
       end if
+      !
+      write(fout,'(i0)') unit
+      fout = adjustl(fout)  ! fout is used for unified error message later
 
-      !! Write the header if non-empty
+      ! Write the header if non-empty
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -2339,7 +2419,7 @@ contains
             call error_stop(msg=trim(msgout))
         end if           
       end do
-      ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+
       if (footer_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
           if (ios/=0) then
@@ -2352,7 +2432,8 @@ contains
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_iint16u
-    subroutine savetxt_iint32u (unit, d, delimiter, fmt, header, footer, comments)
+    subroutine savetxt_iint32u (unit, d, delimiter, fmt, header, footer, comments&
+      )
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -2384,15 +2465,15 @@ contains
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout, fout
-
+      !
       logical :: opened
+      character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
       comments_ = optval(comments, comment_default)
-      header_ = optval(header, '')
-      footer_ = optval(footer, '')
+      header_ = optval(trim(header), '')
+      footer_ = optval(trim(footer), '')
 
       if(index(delimiter_, comments_) /= 0) then
           write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
@@ -2414,14 +2495,15 @@ contains
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       inquire (unit=unit, opened=opened)
-      write(fout,'(i0)') unit
-      fout = adjustl(fout)  ! fout is used for unified error message later
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
            call error_stop(msg=trim(msgout))
       end if
+      !
+      write(fout,'(i0)') unit
+      fout = adjustl(fout)  ! fout is used for unified error message later
 
-      !! Write the header if non-empty
+      ! Write the header if non-empty
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -2439,7 +2521,7 @@ contains
             call error_stop(msg=trim(msgout))
         end if           
       end do
-      ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+
       if (footer_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
           if (ios/=0) then
@@ -2452,7 +2534,8 @@ contains
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_iint32u
-    subroutine savetxt_iint64u (unit, d, delimiter, fmt, header, footer, comments)
+    subroutine savetxt_iint64u (unit, d, delimiter, fmt, header, footer, comments&
+      )
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -2484,15 +2567,15 @@ contains
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout, fout
-
+      !
       logical :: opened
+      character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
       comments_ = optval(comments, comment_default)
-      header_ = optval(header, '')
-      footer_ = optval(footer, '')
+      header_ = optval(trim(header), '')
+      footer_ = optval(trim(footer), '')
 
       if(index(delimiter_, comments_) /= 0) then
           write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
@@ -2514,14 +2597,15 @@ contains
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       inquire (unit=unit, opened=opened)
-      write(fout,'(i0)') unit
-      fout = adjustl(fout)  ! fout is used for unified error message later
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
            call error_stop(msg=trim(msgout))
       end if
+      !
+      write(fout,'(i0)') unit
+      fout = adjustl(fout)  ! fout is used for unified error message later
 
-      !! Write the header if non-empty
+      ! Write the header if non-empty
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -2539,7 +2623,7 @@ contains
             call error_stop(msg=trim(msgout))
         end if           
       end do
-      ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+
       if (footer_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
           if (ios/=0) then
@@ -2552,7 +2636,8 @@ contains
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_iint64u
-    subroutine savetxt_cspu (unit, d, delimiter, fmt, header, footer, comments)
+    subroutine savetxt_cspu (unit, d, delimiter, fmt, header, footer, comments&
+      )
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -2584,15 +2669,15 @@ contains
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout, fout
-
+      !
       logical :: opened
+      character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
       comments_ = optval(comments, comment_default)
-      header_ = optval(header, '')
-      footer_ = optval(footer, '')
+      header_ = optval(trim(header), '')
+      footer_ = optval(trim(footer), '')
 
       if(index(delimiter_, comments_) /= 0) then
           write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
@@ -2614,14 +2699,15 @@ contains
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       inquire (unit=unit, opened=opened)
-      write(fout,'(i0)') unit
-      fout = adjustl(fout)  ! fout is used for unified error message later
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
            call error_stop(msg=trim(msgout))
       end if
+      !
+      write(fout,'(i0)') unit
+      fout = adjustl(fout)  ! fout is used for unified error message later
 
-      !! Write the header if non-empty
+      ! Write the header if non-empty
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -2639,7 +2725,7 @@ contains
             call error_stop(msg=trim(msgout))
         end if           
       end do
-      ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+
       if (footer_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
           if (ios/=0) then
@@ -2652,7 +2738,8 @@ contains
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
     end subroutine savetxt_cspu
-    subroutine savetxt_cdpu (unit, d, delimiter, fmt, header, footer, comments)
+    subroutine savetxt_cdpu (unit, d, delimiter, fmt, header, footer, comments&
+      )
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -2684,15 +2771,15 @@ contains
       character(len=:), allocatable :: comments_
       character(len=:), allocatable :: header_
       character(len=:), allocatable :: footer_
-      character(len=1024) :: iomsg, msgout, fout
-
+      !
       logical :: opened
+      character(len=1024) :: iomsg, msgout, fout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
       comments_ = optval(comments, comment_default)
-      header_ = optval(header, '')
-      footer_ = optval(footer, '')
+      header_ = optval(trim(header), '')
+      footer_ = optval(trim(footer), '')
 
       if(index(delimiter_, comments_) /= 0) then
           write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
@@ -2714,14 +2801,15 @@ contains
       fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
 
       inquire (unit=unit, opened=opened)
-      write(fout,'(i0)') unit
-      fout = adjustl(fout)  ! fout is used for unified error message later
       if(.not. opened) then
            write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open'
            call error_stop(msg=trim(msgout))
       end if
+      !
+      write(fout,'(i0)') unit
+      fout = adjustl(fout)  ! fout is used for unified error message later
 
-      !! Write the header if non-empty
+      ! Write the header if non-empty
       if (header_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
           if (ios/=0) then
@@ -2739,7 +2827,7 @@ contains
             call error_stop(msg=trim(msgout))
         end if           
       end do
-      ! if (footer_ /= '') write (unit, '(A)') comments_//replace_all(footer_, nl, nl//comments_)
+
       if (footer_ /= '') then
           write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
           if (ios/=0) then
