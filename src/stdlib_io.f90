@@ -11,8 +11,11 @@ module stdlib_io
                                  FMT_COMPLEX_SP, FMT_COMPLEX_DP, FMT_COMPLEX_XDP, FMT_COMPLEX_QP
   use stdlib_error, only: error_stop, state_type, STDLIB_IO_ERROR
   use stdlib_optval, only: optval
-  use stdlib_ascii, only: is_blank, whitespace, CR,LF,VT,FF
+  use stdlib_ascii, only: is_blank, CR, LF, TAB
   use stdlib_string_type, only : string_type, assignment(=), move
+  use stdlib_strings, only: starts_with
+  use stdlib_str2num, only: to_num_from_stream
+
   implicit none
   private
   ! Public API
@@ -44,9 +47,10 @@ module stdlib_io
   public :: parse_mode
 
   !> Default delimiter for loadtxt, savetxt and number_of_columns
-  character(len=1), parameter :: delimiter_default = " "
+  character(len=1), parameter :: delimiter_default = ""
   character(len=1), parameter :: comment_default = "#"
-  character(len=1), parameter :: nl = new_line('a')
+  character(len=2), parameter :: nl = CR//LF
+  character(len=*), parameter :: blanks = " "//TAB
 
   public :: FMT_INT, FMT_REAL_SP, FMT_REAL_DP, FMT_REAL_XDP, FMT_REAL_QP
   public :: FMT_COMPLEX_SP, FMT_COMPLEX_DP, FMT_COMPLEX_XDP, FMT_COMPLEX_QP
@@ -66,14 +70,22 @@ module stdlib_io
     !!
     !! Loads a 2D array from a text file
     !! ([Specification](../page/specs/stdlib_io.html#description))
-      module procedure loadtxt_rsp
-      module procedure loadtxt_rdp
-      module procedure loadtxt_iint8
-      module procedure loadtxt_iint16
-      module procedure loadtxt_iint32
-      module procedure loadtxt_iint64
-      module procedure loadtxt_csp
-      module procedure loadtxt_cdp
+      module procedure loadtxt_rspf
+      module procedure loadtxt_rdpf
+      module procedure loadtxt_iint8f
+      module procedure loadtxt_iint16f
+      module procedure loadtxt_iint32f
+      module procedure loadtxt_iint64f
+      module procedure loadtxt_cspf
+      module procedure loadtxt_cdpf
+      module procedure loadtxt_rspu
+      module procedure loadtxt_rdpu
+      module procedure loadtxt_iint8u
+      module procedure loadtxt_iint16u
+      module procedure loadtxt_iint32u
+      module procedure loadtxt_iint64u
+      module procedure loadtxt_cspu
+      module procedure loadtxt_cdpu
   end interface loadtxt
 
   interface savetxt
@@ -81,1110 +93,2734 @@ module stdlib_io
     !!
     !! Saves a 2D array into a text file
     !! ([Specification](../page/specs/stdlib_io.html#description_2))
-      module procedure savetxt_rspf
-      module procedure savetxt_rdpf
-      module procedure savetxt_iint8f
-      module procedure savetxt_iint16f
-      module procedure savetxt_iint32f
-      module procedure savetxt_iint64f
-      module procedure savetxt_cspf
-      module procedure savetxt_cdpf
-      module procedure savetxt_rspu
-      module procedure savetxt_rdpu
-      module procedure savetxt_iint8u
-      module procedure savetxt_iint16u
-      module procedure savetxt_iint32u
-      module procedure savetxt_iint64u
-      module procedure savetxt_cspu
-      module procedure savetxt_cdpu
+      module procedure savetxt_rsp
+      module procedure savetxt_rdp
+      module procedure savetxt_iint8
+      module procedure savetxt_iint16
+      module procedure savetxt_iint32
+      module procedure savetxt_iint64
+      module procedure savetxt_csp
+      module procedure savetxt_cdp
   end interface
 
 contains
 
-    subroutine  loadtxt_rsp(filename, d, skiprows, max_rows, fmt, delimiter)
-      !! version: experimental
-      !!
-      !! Loads a 2D array from a text file.
-      !!
-      !! Arguments
-      !! ---------
-      !!
-      !! Filename to load the array from
-      character(len=*), intent(in) :: filename
-      !! The array 'd' will be automatically allocated with the correct dimensions
-      real(sp), allocatable, intent(out) :: d(:,:)
-      !! Skip the first `skiprows` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
-      integer, intent(in), optional :: skiprows
-      !! Read `max_rows` lines of content after `skiprows` lines.
-      !! A negative value results in reading all lines.
-      !! A value of zero results in no lines to be read.
-      !! The default value is -1.
-      integer, intent(in), optional :: max_rows
-      character(len=*), intent(in), optional :: fmt
-      character(len=1), intent(in), optional :: delimiter
-      character(len=:), allocatable :: fmt_
-      character(len=1) :: delimiter_
-      !!
-      !! Example
-      !! -------
-      !!
-      !!```fortran
-      !! real(sp), allocatable :: data(:, :)
-      !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
-      !!```
-      !!
-      !! Where 'log.txt' contains for example::
-      !!
-      !!     1 2 3
-      !!     2 4 6
-      !!     8 9 10
-      !!     11 12 13
-      !!     ...
-      !!
-      integer :: s
-      integer :: nrow, ncol, i, j, ios, skiprows_, max_rows_, istart, iend
-      character(len=:), allocatable :: line, iomsg_
-      character(len=1024) :: iomsg, msgout
+    subroutine loadtxt_rspf (filename, d, comments, delimiter, skiplines, max_rows, usecols)
+        !! version: experimental
+        !!
+        !! Loads a 2D array from a text file.
+        !!
+        !! Arguments
+        !! ---------
+        !!
+        !! Filename with the array to load
+        character(len=*), intent(in) :: filename  ! File to save the array to
+        !! The array 'd' will be automatically allocated with the correct dimensions
+        real(sp), allocatable, intent(out) :: d(:, :) 
+        integer, intent(in), optional :: skiplines !! Skip the first `skiplines` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
+        integer, intent(in), optional :: max_rows !! Read `max_rows` lines of content after `skiplines` lines. A negative value results in reading all lines. A value of zero results in no lines to be read. The default is to read all rows.
+        character(len=*), intent(in), optional :: comments !! from comments symbol until line end everything else will be ignored. The default is '#'.
+        character(len=*), intent(in), optional :: delimiter !! Character used to separate values in a line. The default is any number of spaces and or tabs.
+        integer, intent(in), optional :: usecols(:) !! Array of column indices to read. If not provided, all columns are read.
+        !!
+        !! Example
+        !! -------
+        !!
+        !!```fortran
+        !! real(sp), allocatable :: data(:, :)
+        !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
+        !!```
+        !!
+        !! Where 'log.txt' contains for example::
+        !!
+        !!     1 2 3
+        !!     2 4 6
+        !!     8 9 10
+        !!     11 12 13
+        !!     ...
+        !!
+        integer :: iostat
+        integer :: skiplines_, max_rows_
+        integer :: fsze, nrows, nrows_effective, ncols, j, start_effective
+        character(:), allocatable, target :: ff
+        character(len=:), pointer :: ffp
+        integer :: line_start, line_end
+        character(len=:), allocatable :: delim_
+        character(len=:), allocatable :: comment_
+        integer, allocatable ::  usecols_(:)
+        character(len=1024) :: iomsg, msgout, fout
+        character(len=16) :: readable
+        logical :: opened
+        !
+        integer :: row, row_effective, err
+        real(sp), allocatable :: cols(:)
+        integer :: unit
 
-      skiprows_ = max(optval(skiprows, 0), 0)
-      max_rows_ = optval(max_rows, -1)
-      delimiter_ = optval(delimiter, delimiter_default)
+        comment_ = optval(comments, comment_default)
+        delim_ = optval(delimiter, delimiter_default)
+        skiplines_ = optval(skiplines, 0)
+        ! max_rows will be set later, after determining number of rows
 
-      s = open(filename)
-
-      ! determine number or rows
-      nrow = number_of_rows(s)
-      skiprows_ = min(skiprows_, nrow)
-      if ( max_rows_ < 0 .or. max_rows_ > (nrow - skiprows_) ) max_rows_ = nrow - skiprows_
-
-      ! determine number of columns
-      ncol = 0
-      if ( skiprows_ < nrow ) ncol = number_of_columns(s, skiprows=skiprows_, delimiter=delimiter_)
-
-      allocate(d(max_rows_, ncol))
-      if (max_rows_ == 0 .or. ncol == 0) return
-
-      do i = 1, skiprows_
-        read(s, *, iostat=ios, iomsg=iomsg)
-        
-        if (ios/=0) then 
-           write(msgout,1) trim(iomsg),i,trim(filename) 
-           1 format('loadtxt: error <',a,'> skipping line ',i0,' of ',a,'.')
-           call error_stop(msg=trim(msgout))
+        !----------------------------------------- Check file
+        unit = open (filename, "rb", iostat=iostat)
+        if (iostat /= 0) then
+            write(msgout,'(a)') "loadtxt: error opening file "//trim(filename)
+            call error_stop(msg=trim(msgout))
         end if
-        
-      end do
-      
-      ! Default to format used for savetxt if fmt not specified.
-      fmt_ = optval(fmt, "(*"//FMT_REAL_sp(1:len(FMT_REAL_sp)-1)//",:,1x))")
-
-      if ( fmt_ == '*' ) then
-        ! Use list directed read if user has specified fmt='*'
-        if (is_blank(delimiter_) .or. delimiter_ == ",") then
-          do i = 1, max_rows_
-            read (s,*,iostat=ios,iomsg=iomsg) d(i, :)
+        fout = filename           ! fout is used for unified error message later
             
-            if (ios/=0) then 
-              write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-              call error_stop(msg=trim(msgout))
-            end if          
-            
-          enddo
-        ! Otherwise read each value separately
+        !----------------------------------------- Load file in a single string
+        inquire (unit=unit, size=fsze)
+        if(fsze == 0) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: file empty'
+            call error_stop(msg=trim(msgout))
         else
-          do i = 1, max_rows_
-            call get_line(s, line, ios, iomsg_)
-            if (ios/=0) then 
-               write(msgout,2) trim(iomsg_),size(d,2),i,trim(filename)
-               call error_stop(msg=trim(msgout))
+            allocate (character(fsze) :: ff)
+            read (unit, iostat=iostat, iomsg=iomsg) ff
+            if (iostat /= 0) then
+                write(msgout,'(a)') "loadtxt: error reading file "//trim(fout)//"("//trim(iomsg)//")"
+                call error_stop(msg=trim(msgout))
             end if
-  
-            istart = 0
-            do j = 1, ncol - 1
-              iend = index(line(istart+1:), delimiter_)
-              read (line(istart+1:istart+iend-1),*,iostat=ios,iomsg=iomsg) d(i, j)
-              if (ios/=0) then 
-                 write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-                 call error_stop(msg=trim(msgout))
-              end if
-              istart = istart + iend
+        end if
+        close (unit)
+
+        ffp => ff
+        start_effective = 1     ! Start after skiplines
+
+        !----------------------------------------- Count lines and columns
+        nrows = 0               ! Total number of rows (including empty and commented lines)
+        nrows_effective = 0     ! rows with data
+        ncols = 0
+        do while (len(ffp) > 0)
+            line_end = shift_to_eol(ffp)
+            if (line_end > len(ffp)) exit  ! No more lines
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Skip initial blanks in line
+            nrows = nrows + 1
+            if (nrows <= skiplines_) then
+                start_effective = start_effective + line_end ! Remember position to use aS starting point when reading
+                ffp => ffp(line_end + 1:) ! Skip the line
+                cycle
+            end if
+
+            if (starts_with(ffp(line_start:), comment_) .or. (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+            nrows_effective = nrows_effective + 1
+            !
+            ! if ncols is not set yet, determine the number of columns
+            if (ncols == 0) ncols = number_cols_line(ffp(line_start:line_end), delim_, comment_)
+            ffp => ffp(line_end + 1:) ! go to next line
+        end do
+
+        !----------------------------------------- Allocate and read data
+
+        max_rows_ = min(optval(max_rows, nrows_effective), nrows_effective)
+        ! If there is no data we will return an empty array
+        if ((max_rows_ <= 0) .or. (ncols == 0)) then
+            allocate (d(0, 0))
+            return
+        end if
+
+        if (present(usecols)) then ! user set columns to extract
+            usecols_ = usecols
+        else                    ! extract all columns
+            usecols_ = [(j, j=1, ncols)]
+        end if
+        allocate (d(max_rows_, size(usecols_)))
+        allocate (cols(ncols))  ! Used to hold each row
+
+        row_effective = 0
+        ffp => ff(start_effective:) ! Reset pointer to the beginning of the file after skiplines
+        nrows = nrows - skiplines_
+
+        do row = 1, nrows
+            line_end = shift_to_eol(ffp)
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Avoid initial blanks in line
+
+            if (starts_with(ffp(line_start:), comment_) .or. &
+                (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+
+            row_effective = row_effective + 1
+            do j = 1, ncols     ! Read a row
+                cols(j) = to_num_from_stream(ffp, cols(j))
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+
+                if (scan(ffp(1:1), nl) /= 0) then ! If EOL => no more cols
+                    exit
+                end if
             end do
-  
-            read (line(istart+1:),*,iostat=ios,iomsg=iomsg) d(i, ncol)
-            if (ios/=0) then 
-               write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-               call error_stop(msg=trim(msgout))
-            end if          
-            
-          enddo
+            ! Copy the columns of the current row to d(row_effective,:)
+            do j = 1, size(usecols_)
+                d(row_effective, j) = cols(usecols_(j))
+            end do
+
+            if (row_effective >= max_rows_) return
+            line_end = shift_to_eol(ffp)
+            ffp => ffp(line_end + 1:)
+        end do
+
+    end subroutine loadtxt_rspf
+    subroutine loadtxt_rdpf (filename, d, comments, delimiter, skiplines, max_rows, usecols)
+        !! version: experimental
+        !!
+        !! Loads a 2D array from a text file.
+        !!
+        !! Arguments
+        !! ---------
+        !!
+        !! Filename with the array to load
+        character(len=*), intent(in) :: filename  ! File to save the array to
+        !! The array 'd' will be automatically allocated with the correct dimensions
+        real(dp), allocatable, intent(out) :: d(:, :) 
+        integer, intent(in), optional :: skiplines !! Skip the first `skiplines` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
+        integer, intent(in), optional :: max_rows !! Read `max_rows` lines of content after `skiplines` lines. A negative value results in reading all lines. A value of zero results in no lines to be read. The default is to read all rows.
+        character(len=*), intent(in), optional :: comments !! from comments symbol until line end everything else will be ignored. The default is '#'.
+        character(len=*), intent(in), optional :: delimiter !! Character used to separate values in a line. The default is any number of spaces and or tabs.
+        integer, intent(in), optional :: usecols(:) !! Array of column indices to read. If not provided, all columns are read.
+        !!
+        !! Example
+        !! -------
+        !!
+        !!```fortran
+        !! real(dp), allocatable :: data(:, :)
+        !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
+        !!```
+        !!
+        !! Where 'log.txt' contains for example::
+        !!
+        !!     1 2 3
+        !!     2 4 6
+        !!     8 9 10
+        !!     11 12 13
+        !!     ...
+        !!
+        integer :: iostat
+        integer :: skiplines_, max_rows_
+        integer :: fsze, nrows, nrows_effective, ncols, j, start_effective
+        character(:), allocatable, target :: ff
+        character(len=:), pointer :: ffp
+        integer :: line_start, line_end
+        character(len=:), allocatable :: delim_
+        character(len=:), allocatable :: comment_
+        integer, allocatable ::  usecols_(:)
+        character(len=1024) :: iomsg, msgout, fout
+        character(len=16) :: readable
+        logical :: opened
+        !
+        integer :: row, row_effective, err
+        real(dp), allocatable :: cols(:)
+        integer :: unit
+
+        comment_ = optval(comments, comment_default)
+        delim_ = optval(delimiter, delimiter_default)
+        skiplines_ = optval(skiplines, 0)
+        ! max_rows will be set later, after determining number of rows
+
+        !----------------------------------------- Check file
+        unit = open (filename, "rb", iostat=iostat)
+        if (iostat /= 0) then
+            write(msgout,'(a)') "loadtxt: error opening file "//trim(filename)
+            call error_stop(msg=trim(msgout))
         end if
-      else
-        ! Otherwise pass default or user specified fmt string.
-        do i = 1, max_rows_
-          read (s,fmt_,iostat=ios,iomsg=iomsg) d(i, :)
-          
-          if (ios/=0) then 
-             write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-             call error_stop(msg=trim(msgout))
-          end if             
-          
-        enddo
-      endif
-
-      close(s)
-      
-      2 format('loadtxt: error <',a,'> reading ',i0,' values from line ',i0,' of ',a,'.')
-
-    end subroutine loadtxt_rsp
-    subroutine  loadtxt_rdp(filename, d, skiprows, max_rows, fmt, delimiter)
-      !! version: experimental
-      !!
-      !! Loads a 2D array from a text file.
-      !!
-      !! Arguments
-      !! ---------
-      !!
-      !! Filename to load the array from
-      character(len=*), intent(in) :: filename
-      !! The array 'd' will be automatically allocated with the correct dimensions
-      real(dp), allocatable, intent(out) :: d(:,:)
-      !! Skip the first `skiprows` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
-      integer, intent(in), optional :: skiprows
-      !! Read `max_rows` lines of content after `skiprows` lines.
-      !! A negative value results in reading all lines.
-      !! A value of zero results in no lines to be read.
-      !! The default value is -1.
-      integer, intent(in), optional :: max_rows
-      character(len=*), intent(in), optional :: fmt
-      character(len=1), intent(in), optional :: delimiter
-      character(len=:), allocatable :: fmt_
-      character(len=1) :: delimiter_
-      !!
-      !! Example
-      !! -------
-      !!
-      !!```fortran
-      !! real(dp), allocatable :: data(:, :)
-      !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
-      !!```
-      !!
-      !! Where 'log.txt' contains for example::
-      !!
-      !!     1 2 3
-      !!     2 4 6
-      !!     8 9 10
-      !!     11 12 13
-      !!     ...
-      !!
-      integer :: s
-      integer :: nrow, ncol, i, j, ios, skiprows_, max_rows_, istart, iend
-      character(len=:), allocatable :: line, iomsg_
-      character(len=1024) :: iomsg, msgout
-
-      skiprows_ = max(optval(skiprows, 0), 0)
-      max_rows_ = optval(max_rows, -1)
-      delimiter_ = optval(delimiter, delimiter_default)
-
-      s = open(filename)
-
-      ! determine number or rows
-      nrow = number_of_rows(s)
-      skiprows_ = min(skiprows_, nrow)
-      if ( max_rows_ < 0 .or. max_rows_ > (nrow - skiprows_) ) max_rows_ = nrow - skiprows_
-
-      ! determine number of columns
-      ncol = 0
-      if ( skiprows_ < nrow ) ncol = number_of_columns(s, skiprows=skiprows_, delimiter=delimiter_)
-
-      allocate(d(max_rows_, ncol))
-      if (max_rows_ == 0 .or. ncol == 0) return
-
-      do i = 1, skiprows_
-        read(s, *, iostat=ios, iomsg=iomsg)
-        
-        if (ios/=0) then 
-           write(msgout,1) trim(iomsg),i,trim(filename) 
-           1 format('loadtxt: error <',a,'> skipping line ',i0,' of ',a,'.')
-           call error_stop(msg=trim(msgout))
-        end if
-        
-      end do
-      
-      ! Default to format used for savetxt if fmt not specified.
-      fmt_ = optval(fmt, "(*"//FMT_REAL_dp(1:len(FMT_REAL_dp)-1)//",:,1x))")
-
-      if ( fmt_ == '*' ) then
-        ! Use list directed read if user has specified fmt='*'
-        if (is_blank(delimiter_) .or. delimiter_ == ",") then
-          do i = 1, max_rows_
-            read (s,*,iostat=ios,iomsg=iomsg) d(i, :)
+        fout = filename           ! fout is used for unified error message later
             
-            if (ios/=0) then 
-              write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-              call error_stop(msg=trim(msgout))
-            end if          
-            
-          enddo
-        ! Otherwise read each value separately
+        !----------------------------------------- Load file in a single string
+        inquire (unit=unit, size=fsze)
+        if(fsze == 0) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: file empty'
+            call error_stop(msg=trim(msgout))
         else
-          do i = 1, max_rows_
-            call get_line(s, line, ios, iomsg_)
-            if (ios/=0) then 
-               write(msgout,2) trim(iomsg_),size(d,2),i,trim(filename)
-               call error_stop(msg=trim(msgout))
+            allocate (character(fsze) :: ff)
+            read (unit, iostat=iostat, iomsg=iomsg) ff
+            if (iostat /= 0) then
+                write(msgout,'(a)') "loadtxt: error reading file "//trim(fout)//"("//trim(iomsg)//")"
+                call error_stop(msg=trim(msgout))
             end if
-  
-            istart = 0
-            do j = 1, ncol - 1
-              iend = index(line(istart+1:), delimiter_)
-              read (line(istart+1:istart+iend-1),*,iostat=ios,iomsg=iomsg) d(i, j)
-              if (ios/=0) then 
-                 write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-                 call error_stop(msg=trim(msgout))
-              end if
-              istart = istart + iend
+        end if
+        close (unit)
+
+        ffp => ff
+        start_effective = 1     ! Start after skiplines
+
+        !----------------------------------------- Count lines and columns
+        nrows = 0               ! Total number of rows (including empty and commented lines)
+        nrows_effective = 0     ! rows with data
+        ncols = 0
+        do while (len(ffp) > 0)
+            line_end = shift_to_eol(ffp)
+            if (line_end > len(ffp)) exit  ! No more lines
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Skip initial blanks in line
+            nrows = nrows + 1
+            if (nrows <= skiplines_) then
+                start_effective = start_effective + line_end ! Remember position to use aS starting point when reading
+                ffp => ffp(line_end + 1:) ! Skip the line
+                cycle
+            end if
+
+            if (starts_with(ffp(line_start:), comment_) .or. (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+            nrows_effective = nrows_effective + 1
+            !
+            ! if ncols is not set yet, determine the number of columns
+            if (ncols == 0) ncols = number_cols_line(ffp(line_start:line_end), delim_, comment_)
+            ffp => ffp(line_end + 1:) ! go to next line
+        end do
+
+        !----------------------------------------- Allocate and read data
+
+        max_rows_ = min(optval(max_rows, nrows_effective), nrows_effective)
+        ! If there is no data we will return an empty array
+        if ((max_rows_ <= 0) .or. (ncols == 0)) then
+            allocate (d(0, 0))
+            return
+        end if
+
+        if (present(usecols)) then ! user set columns to extract
+            usecols_ = usecols
+        else                    ! extract all columns
+            usecols_ = [(j, j=1, ncols)]
+        end if
+        allocate (d(max_rows_, size(usecols_)))
+        allocate (cols(ncols))  ! Used to hold each row
+
+        row_effective = 0
+        ffp => ff(start_effective:) ! Reset pointer to the beginning of the file after skiplines
+        nrows = nrows - skiplines_
+
+        do row = 1, nrows
+            line_end = shift_to_eol(ffp)
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Avoid initial blanks in line
+
+            if (starts_with(ffp(line_start:), comment_) .or. &
+                (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+
+            row_effective = row_effective + 1
+            do j = 1, ncols     ! Read a row
+                cols(j) = to_num_from_stream(ffp, cols(j))
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+
+                if (scan(ffp(1:1), nl) /= 0) then ! If EOL => no more cols
+                    exit
+                end if
             end do
-  
-            read (line(istart+1:),*,iostat=ios,iomsg=iomsg) d(i, ncol)
-            if (ios/=0) then 
-               write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-               call error_stop(msg=trim(msgout))
-            end if          
-            
-          enddo
+            ! Copy the columns of the current row to d(row_effective,:)
+            do j = 1, size(usecols_)
+                d(row_effective, j) = cols(usecols_(j))
+            end do
+
+            if (row_effective >= max_rows_) return
+            line_end = shift_to_eol(ffp)
+            ffp => ffp(line_end + 1:)
+        end do
+
+    end subroutine loadtxt_rdpf
+    subroutine loadtxt_iint8f (filename, d, comments, delimiter, skiplines, max_rows, usecols)
+        !! version: experimental
+        !!
+        !! Loads a 2D array from a text file.
+        !!
+        !! Arguments
+        !! ---------
+        !!
+        !! Filename with the array to load
+        character(len=*), intent(in) :: filename  ! File to save the array to
+        !! The array 'd' will be automatically allocated with the correct dimensions
+        integer(int8), allocatable, intent(out) :: d(:, :) 
+        integer, intent(in), optional :: skiplines !! Skip the first `skiplines` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
+        integer, intent(in), optional :: max_rows !! Read `max_rows` lines of content after `skiplines` lines. A negative value results in reading all lines. A value of zero results in no lines to be read. The default is to read all rows.
+        character(len=*), intent(in), optional :: comments !! from comments symbol until line end everything else will be ignored. The default is '#'.
+        character(len=*), intent(in), optional :: delimiter !! Character used to separate values in a line. The default is any number of spaces and or tabs.
+        integer, intent(in), optional :: usecols(:) !! Array of column indices to read. If not provided, all columns are read.
+        !!
+        !! Example
+        !! -------
+        !!
+        !!```fortran
+        !! integer(int8), allocatable :: data(:, :)
+        !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
+        !!```
+        !!
+        !! Where 'log.txt' contains for example::
+        !!
+        !!     1 2 3
+        !!     2 4 6
+        !!     8 9 10
+        !!     11 12 13
+        !!     ...
+        !!
+        integer :: iostat
+        integer :: skiplines_, max_rows_
+        integer :: fsze, nrows, nrows_effective, ncols, j, start_effective
+        character(:), allocatable, target :: ff
+        character(len=:), pointer :: ffp
+        integer :: line_start, line_end
+        character(len=:), allocatable :: delim_
+        character(len=:), allocatable :: comment_
+        integer, allocatable ::  usecols_(:)
+        character(len=1024) :: iomsg, msgout, fout
+        character(len=16) :: readable
+        logical :: opened
+        !
+        integer :: row, row_effective, err
+        integer(int8), allocatable :: cols(:)
+        integer :: unit
+
+        comment_ = optval(comments, comment_default)
+        delim_ = optval(delimiter, delimiter_default)
+        skiplines_ = optval(skiplines, 0)
+        ! max_rows will be set later, after determining number of rows
+
+        !----------------------------------------- Check file
+        unit = open (filename, "rb", iostat=iostat)
+        if (iostat /= 0) then
+            write(msgout,'(a)') "loadtxt: error opening file "//trim(filename)
+            call error_stop(msg=trim(msgout))
         end if
-      else
-        ! Otherwise pass default or user specified fmt string.
-        do i = 1, max_rows_
-          read (s,fmt_,iostat=ios,iomsg=iomsg) d(i, :)
-          
-          if (ios/=0) then 
-             write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-             call error_stop(msg=trim(msgout))
-          end if             
-          
-        enddo
-      endif
-
-      close(s)
-      
-      2 format('loadtxt: error <',a,'> reading ',i0,' values from line ',i0,' of ',a,'.')
-
-    end subroutine loadtxt_rdp
-    subroutine  loadtxt_iint8(filename, d, skiprows, max_rows, fmt, delimiter)
-      !! version: experimental
-      !!
-      !! Loads a 2D array from a text file.
-      !!
-      !! Arguments
-      !! ---------
-      !!
-      !! Filename to load the array from
-      character(len=*), intent(in) :: filename
-      !! The array 'd' will be automatically allocated with the correct dimensions
-      integer(int8), allocatable, intent(out) :: d(:,:)
-      !! Skip the first `skiprows` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
-      integer, intent(in), optional :: skiprows
-      !! Read `max_rows` lines of content after `skiprows` lines.
-      !! A negative value results in reading all lines.
-      !! A value of zero results in no lines to be read.
-      !! The default value is -1.
-      integer, intent(in), optional :: max_rows
-      character(len=*), intent(in), optional :: fmt
-      character(len=1), intent(in), optional :: delimiter
-      character(len=:), allocatable :: fmt_
-      character(len=1) :: delimiter_
-      !!
-      !! Example
-      !! -------
-      !!
-      !!```fortran
-      !! integer(int8), allocatable :: data(:, :)
-      !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
-      !!```
-      !!
-      !! Where 'log.txt' contains for example::
-      !!
-      !!     1 2 3
-      !!     2 4 6
-      !!     8 9 10
-      !!     11 12 13
-      !!     ...
-      !!
-      integer :: s
-      integer :: nrow, ncol, i, j, ios, skiprows_, max_rows_, istart, iend
-      character(len=:), allocatable :: line, iomsg_
-      character(len=1024) :: iomsg, msgout
-
-      skiprows_ = max(optval(skiprows, 0), 0)
-      max_rows_ = optval(max_rows, -1)
-      delimiter_ = optval(delimiter, delimiter_default)
-
-      s = open(filename)
-
-      ! determine number or rows
-      nrow = number_of_rows(s)
-      skiprows_ = min(skiprows_, nrow)
-      if ( max_rows_ < 0 .or. max_rows_ > (nrow - skiprows_) ) max_rows_ = nrow - skiprows_
-
-      ! determine number of columns
-      ncol = 0
-      if ( skiprows_ < nrow ) ncol = number_of_columns(s, skiprows=skiprows_, delimiter=delimiter_)
-
-      allocate(d(max_rows_, ncol))
-      if (max_rows_ == 0 .or. ncol == 0) return
-
-      do i = 1, skiprows_
-        read(s, *, iostat=ios, iomsg=iomsg)
-        
-        if (ios/=0) then 
-           write(msgout,1) trim(iomsg),i,trim(filename) 
-           1 format('loadtxt: error <',a,'> skipping line ',i0,' of ',a,'.')
-           call error_stop(msg=trim(msgout))
-        end if
-        
-      end do
-      
-      ! Default to format used for savetxt if fmt not specified.
-      fmt_ = optval(fmt, "*")
-
-      if ( fmt_ == '*' ) then
-        ! Use list directed read if user has specified fmt='*'
-        if (is_blank(delimiter_) .or. delimiter_ == ",") then
-          do i = 1, max_rows_
-            read (s,*,iostat=ios,iomsg=iomsg) d(i, :)
+        fout = filename           ! fout is used for unified error message later
             
-            if (ios/=0) then 
-              write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-              call error_stop(msg=trim(msgout))
-            end if          
-            
-          enddo
-        ! Otherwise read each value separately
+        !----------------------------------------- Load file in a single string
+        inquire (unit=unit, size=fsze)
+        if(fsze == 0) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: file empty'
+            call error_stop(msg=trim(msgout))
         else
-          do i = 1, max_rows_
-            call get_line(s, line, ios, iomsg_)
-            if (ios/=0) then 
-               write(msgout,2) trim(iomsg_),size(d,2),i,trim(filename)
-               call error_stop(msg=trim(msgout))
+            allocate (character(fsze) :: ff)
+            read (unit, iostat=iostat, iomsg=iomsg) ff
+            if (iostat /= 0) then
+                write(msgout,'(a)') "loadtxt: error reading file "//trim(fout)//"("//trim(iomsg)//")"
+                call error_stop(msg=trim(msgout))
             end if
-  
-            istart = 0
-            do j = 1, ncol - 1
-              iend = index(line(istart+1:), delimiter_)
-              read (line(istart+1:istart+iend-1),*,iostat=ios,iomsg=iomsg) d(i, j)
-              if (ios/=0) then 
-                 write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-                 call error_stop(msg=trim(msgout))
-              end if
-              istart = istart + iend
+        end if
+        close (unit)
+
+        ffp => ff
+        start_effective = 1     ! Start after skiplines
+
+        !----------------------------------------- Count lines and columns
+        nrows = 0               ! Total number of rows (including empty and commented lines)
+        nrows_effective = 0     ! rows with data
+        ncols = 0
+        do while (len(ffp) > 0)
+            line_end = shift_to_eol(ffp)
+            if (line_end > len(ffp)) exit  ! No more lines
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Skip initial blanks in line
+            nrows = nrows + 1
+            if (nrows <= skiplines_) then
+                start_effective = start_effective + line_end ! Remember position to use aS starting point when reading
+                ffp => ffp(line_end + 1:) ! Skip the line
+                cycle
+            end if
+
+            if (starts_with(ffp(line_start:), comment_) .or. (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+            nrows_effective = nrows_effective + 1
+            !
+            ! if ncols is not set yet, determine the number of columns
+            if (ncols == 0) ncols = number_cols_line(ffp(line_start:line_end), delim_, comment_)
+            ffp => ffp(line_end + 1:) ! go to next line
+        end do
+
+        !----------------------------------------- Allocate and read data
+
+        max_rows_ = min(optval(max_rows, nrows_effective), nrows_effective)
+        ! If there is no data we will return an empty array
+        if ((max_rows_ <= 0) .or. (ncols == 0)) then
+            allocate (d(0, 0))
+            return
+        end if
+
+        if (present(usecols)) then ! user set columns to extract
+            usecols_ = usecols
+        else                    ! extract all columns
+            usecols_ = [(j, j=1, ncols)]
+        end if
+        allocate (d(max_rows_, size(usecols_)))
+        allocate (cols(ncols))  ! Used to hold each row
+
+        row_effective = 0
+        ffp => ff(start_effective:) ! Reset pointer to the beginning of the file after skiplines
+        nrows = nrows - skiplines_
+
+        do row = 1, nrows
+            line_end = shift_to_eol(ffp)
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Avoid initial blanks in line
+
+            if (starts_with(ffp(line_start:), comment_) .or. &
+                (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+
+            row_effective = row_effective + 1
+            do j = 1, ncols     ! Read a row
+                cols(j) = to_num_from_stream(ffp, cols(j))
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+
+                if (scan(ffp(1:1), nl) /= 0) then ! If EOL => no more cols
+                    exit
+                end if
             end do
-  
-            read (line(istart+1:),*,iostat=ios,iomsg=iomsg) d(i, ncol)
-            if (ios/=0) then 
-               write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-               call error_stop(msg=trim(msgout))
-            end if          
-            
-          enddo
+            ! Copy the columns of the current row to d(row_effective,:)
+            do j = 1, size(usecols_)
+                d(row_effective, j) = cols(usecols_(j))
+            end do
+
+            if (row_effective >= max_rows_) return
+            line_end = shift_to_eol(ffp)
+            ffp => ffp(line_end + 1:)
+        end do
+
+    end subroutine loadtxt_iint8f
+    subroutine loadtxt_iint16f (filename, d, comments, delimiter, skiplines, max_rows, usecols)
+        !! version: experimental
+        !!
+        !! Loads a 2D array from a text file.
+        !!
+        !! Arguments
+        !! ---------
+        !!
+        !! Filename with the array to load
+        character(len=*), intent(in) :: filename  ! File to save the array to
+        !! The array 'd' will be automatically allocated with the correct dimensions
+        integer(int16), allocatable, intent(out) :: d(:, :) 
+        integer, intent(in), optional :: skiplines !! Skip the first `skiplines` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
+        integer, intent(in), optional :: max_rows !! Read `max_rows` lines of content after `skiplines` lines. A negative value results in reading all lines. A value of zero results in no lines to be read. The default is to read all rows.
+        character(len=*), intent(in), optional :: comments !! from comments symbol until line end everything else will be ignored. The default is '#'.
+        character(len=*), intent(in), optional :: delimiter !! Character used to separate values in a line. The default is any number of spaces and or tabs.
+        integer, intent(in), optional :: usecols(:) !! Array of column indices to read. If not provided, all columns are read.
+        !!
+        !! Example
+        !! -------
+        !!
+        !!```fortran
+        !! integer(int16), allocatable :: data(:, :)
+        !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
+        !!```
+        !!
+        !! Where 'log.txt' contains for example::
+        !!
+        !!     1 2 3
+        !!     2 4 6
+        !!     8 9 10
+        !!     11 12 13
+        !!     ...
+        !!
+        integer :: iostat
+        integer :: skiplines_, max_rows_
+        integer :: fsze, nrows, nrows_effective, ncols, j, start_effective
+        character(:), allocatable, target :: ff
+        character(len=:), pointer :: ffp
+        integer :: line_start, line_end
+        character(len=:), allocatable :: delim_
+        character(len=:), allocatable :: comment_
+        integer, allocatable ::  usecols_(:)
+        character(len=1024) :: iomsg, msgout, fout
+        character(len=16) :: readable
+        logical :: opened
+        !
+        integer :: row, row_effective, err
+        integer(int16), allocatable :: cols(:)
+        integer :: unit
+
+        comment_ = optval(comments, comment_default)
+        delim_ = optval(delimiter, delimiter_default)
+        skiplines_ = optval(skiplines, 0)
+        ! max_rows will be set later, after determining number of rows
+
+        !----------------------------------------- Check file
+        unit = open (filename, "rb", iostat=iostat)
+        if (iostat /= 0) then
+            write(msgout,'(a)') "loadtxt: error opening file "//trim(filename)
+            call error_stop(msg=trim(msgout))
         end if
-      else
-        ! Otherwise pass default or user specified fmt string.
-        do i = 1, max_rows_
-          read (s,fmt_,iostat=ios,iomsg=iomsg) d(i, :)
-          
-          if (ios/=0) then 
-             write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-             call error_stop(msg=trim(msgout))
-          end if             
-          
-        enddo
-      endif
-
-      close(s)
-      
-      2 format('loadtxt: error <',a,'> reading ',i0,' values from line ',i0,' of ',a,'.')
-
-    end subroutine loadtxt_iint8
-    subroutine  loadtxt_iint16(filename, d, skiprows, max_rows, fmt, delimiter)
-      !! version: experimental
-      !!
-      !! Loads a 2D array from a text file.
-      !!
-      !! Arguments
-      !! ---------
-      !!
-      !! Filename to load the array from
-      character(len=*), intent(in) :: filename
-      !! The array 'd' will be automatically allocated with the correct dimensions
-      integer(int16), allocatable, intent(out) :: d(:,:)
-      !! Skip the first `skiprows` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
-      integer, intent(in), optional :: skiprows
-      !! Read `max_rows` lines of content after `skiprows` lines.
-      !! A negative value results in reading all lines.
-      !! A value of zero results in no lines to be read.
-      !! The default value is -1.
-      integer, intent(in), optional :: max_rows
-      character(len=*), intent(in), optional :: fmt
-      character(len=1), intent(in), optional :: delimiter
-      character(len=:), allocatable :: fmt_
-      character(len=1) :: delimiter_
-      !!
-      !! Example
-      !! -------
-      !!
-      !!```fortran
-      !! integer(int16), allocatable :: data(:, :)
-      !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
-      !!```
-      !!
-      !! Where 'log.txt' contains for example::
-      !!
-      !!     1 2 3
-      !!     2 4 6
-      !!     8 9 10
-      !!     11 12 13
-      !!     ...
-      !!
-      integer :: s
-      integer :: nrow, ncol, i, j, ios, skiprows_, max_rows_, istart, iend
-      character(len=:), allocatable :: line, iomsg_
-      character(len=1024) :: iomsg, msgout
-
-      skiprows_ = max(optval(skiprows, 0), 0)
-      max_rows_ = optval(max_rows, -1)
-      delimiter_ = optval(delimiter, delimiter_default)
-
-      s = open(filename)
-
-      ! determine number or rows
-      nrow = number_of_rows(s)
-      skiprows_ = min(skiprows_, nrow)
-      if ( max_rows_ < 0 .or. max_rows_ > (nrow - skiprows_) ) max_rows_ = nrow - skiprows_
-
-      ! determine number of columns
-      ncol = 0
-      if ( skiprows_ < nrow ) ncol = number_of_columns(s, skiprows=skiprows_, delimiter=delimiter_)
-
-      allocate(d(max_rows_, ncol))
-      if (max_rows_ == 0 .or. ncol == 0) return
-
-      do i = 1, skiprows_
-        read(s, *, iostat=ios, iomsg=iomsg)
-        
-        if (ios/=0) then 
-           write(msgout,1) trim(iomsg),i,trim(filename) 
-           1 format('loadtxt: error <',a,'> skipping line ',i0,' of ',a,'.')
-           call error_stop(msg=trim(msgout))
-        end if
-        
-      end do
-      
-      ! Default to format used for savetxt if fmt not specified.
-      fmt_ = optval(fmt, "*")
-
-      if ( fmt_ == '*' ) then
-        ! Use list directed read if user has specified fmt='*'
-        if (is_blank(delimiter_) .or. delimiter_ == ",") then
-          do i = 1, max_rows_
-            read (s,*,iostat=ios,iomsg=iomsg) d(i, :)
+        fout = filename           ! fout is used for unified error message later
             
-            if (ios/=0) then 
-              write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-              call error_stop(msg=trim(msgout))
-            end if          
-            
-          enddo
-        ! Otherwise read each value separately
+        !----------------------------------------- Load file in a single string
+        inquire (unit=unit, size=fsze)
+        if(fsze == 0) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: file empty'
+            call error_stop(msg=trim(msgout))
         else
-          do i = 1, max_rows_
-            call get_line(s, line, ios, iomsg_)
-            if (ios/=0) then 
-               write(msgout,2) trim(iomsg_),size(d,2),i,trim(filename)
-               call error_stop(msg=trim(msgout))
+            allocate (character(fsze) :: ff)
+            read (unit, iostat=iostat, iomsg=iomsg) ff
+            if (iostat /= 0) then
+                write(msgout,'(a)') "loadtxt: error reading file "//trim(fout)//"("//trim(iomsg)//")"
+                call error_stop(msg=trim(msgout))
             end if
-  
-            istart = 0
-            do j = 1, ncol - 1
-              iend = index(line(istart+1:), delimiter_)
-              read (line(istart+1:istart+iend-1),*,iostat=ios,iomsg=iomsg) d(i, j)
-              if (ios/=0) then 
-                 write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-                 call error_stop(msg=trim(msgout))
-              end if
-              istart = istart + iend
+        end if
+        close (unit)
+
+        ffp => ff
+        start_effective = 1     ! Start after skiplines
+
+        !----------------------------------------- Count lines and columns
+        nrows = 0               ! Total number of rows (including empty and commented lines)
+        nrows_effective = 0     ! rows with data
+        ncols = 0
+        do while (len(ffp) > 0)
+            line_end = shift_to_eol(ffp)
+            if (line_end > len(ffp)) exit  ! No more lines
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Skip initial blanks in line
+            nrows = nrows + 1
+            if (nrows <= skiplines_) then
+                start_effective = start_effective + line_end ! Remember position to use aS starting point when reading
+                ffp => ffp(line_end + 1:) ! Skip the line
+                cycle
+            end if
+
+            if (starts_with(ffp(line_start:), comment_) .or. (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+            nrows_effective = nrows_effective + 1
+            !
+            ! if ncols is not set yet, determine the number of columns
+            if (ncols == 0) ncols = number_cols_line(ffp(line_start:line_end), delim_, comment_)
+            ffp => ffp(line_end + 1:) ! go to next line
+        end do
+
+        !----------------------------------------- Allocate and read data
+
+        max_rows_ = min(optval(max_rows, nrows_effective), nrows_effective)
+        ! If there is no data we will return an empty array
+        if ((max_rows_ <= 0) .or. (ncols == 0)) then
+            allocate (d(0, 0))
+            return
+        end if
+
+        if (present(usecols)) then ! user set columns to extract
+            usecols_ = usecols
+        else                    ! extract all columns
+            usecols_ = [(j, j=1, ncols)]
+        end if
+        allocate (d(max_rows_, size(usecols_)))
+        allocate (cols(ncols))  ! Used to hold each row
+
+        row_effective = 0
+        ffp => ff(start_effective:) ! Reset pointer to the beginning of the file after skiplines
+        nrows = nrows - skiplines_
+
+        do row = 1, nrows
+            line_end = shift_to_eol(ffp)
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Avoid initial blanks in line
+
+            if (starts_with(ffp(line_start:), comment_) .or. &
+                (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+
+            row_effective = row_effective + 1
+            do j = 1, ncols     ! Read a row
+                cols(j) = to_num_from_stream(ffp, cols(j))
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+
+                if (scan(ffp(1:1), nl) /= 0) then ! If EOL => no more cols
+                    exit
+                end if
             end do
-  
-            read (line(istart+1:),*,iostat=ios,iomsg=iomsg) d(i, ncol)
-            if (ios/=0) then 
-               write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-               call error_stop(msg=trim(msgout))
-            end if          
-            
-          enddo
+            ! Copy the columns of the current row to d(row_effective,:)
+            do j = 1, size(usecols_)
+                d(row_effective, j) = cols(usecols_(j))
+            end do
+
+            if (row_effective >= max_rows_) return
+            line_end = shift_to_eol(ffp)
+            ffp => ffp(line_end + 1:)
+        end do
+
+    end subroutine loadtxt_iint16f
+    subroutine loadtxt_iint32f (filename, d, comments, delimiter, skiplines, max_rows, usecols)
+        !! version: experimental
+        !!
+        !! Loads a 2D array from a text file.
+        !!
+        !! Arguments
+        !! ---------
+        !!
+        !! Filename with the array to load
+        character(len=*), intent(in) :: filename  ! File to save the array to
+        !! The array 'd' will be automatically allocated with the correct dimensions
+        integer(int32), allocatable, intent(out) :: d(:, :) 
+        integer, intent(in), optional :: skiplines !! Skip the first `skiplines` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
+        integer, intent(in), optional :: max_rows !! Read `max_rows` lines of content after `skiplines` lines. A negative value results in reading all lines. A value of zero results in no lines to be read. The default is to read all rows.
+        character(len=*), intent(in), optional :: comments !! from comments symbol until line end everything else will be ignored. The default is '#'.
+        character(len=*), intent(in), optional :: delimiter !! Character used to separate values in a line. The default is any number of spaces and or tabs.
+        integer, intent(in), optional :: usecols(:) !! Array of column indices to read. If not provided, all columns are read.
+        !!
+        !! Example
+        !! -------
+        !!
+        !!```fortran
+        !! integer(int32), allocatable :: data(:, :)
+        !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
+        !!```
+        !!
+        !! Where 'log.txt' contains for example::
+        !!
+        !!     1 2 3
+        !!     2 4 6
+        !!     8 9 10
+        !!     11 12 13
+        !!     ...
+        !!
+        integer :: iostat
+        integer :: skiplines_, max_rows_
+        integer :: fsze, nrows, nrows_effective, ncols, j, start_effective
+        character(:), allocatable, target :: ff
+        character(len=:), pointer :: ffp
+        integer :: line_start, line_end
+        character(len=:), allocatable :: delim_
+        character(len=:), allocatable :: comment_
+        integer, allocatable ::  usecols_(:)
+        character(len=1024) :: iomsg, msgout, fout
+        character(len=16) :: readable
+        logical :: opened
+        !
+        integer :: row, row_effective, err
+        integer(int32), allocatable :: cols(:)
+        integer :: unit
+
+        comment_ = optval(comments, comment_default)
+        delim_ = optval(delimiter, delimiter_default)
+        skiplines_ = optval(skiplines, 0)
+        ! max_rows will be set later, after determining number of rows
+
+        !----------------------------------------- Check file
+        unit = open (filename, "rb", iostat=iostat)
+        if (iostat /= 0) then
+            write(msgout,'(a)') "loadtxt: error opening file "//trim(filename)
+            call error_stop(msg=trim(msgout))
         end if
-      else
-        ! Otherwise pass default or user specified fmt string.
-        do i = 1, max_rows_
-          read (s,fmt_,iostat=ios,iomsg=iomsg) d(i, :)
-          
-          if (ios/=0) then 
-             write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-             call error_stop(msg=trim(msgout))
-          end if             
-          
-        enddo
-      endif
-
-      close(s)
-      
-      2 format('loadtxt: error <',a,'> reading ',i0,' values from line ',i0,' of ',a,'.')
-
-    end subroutine loadtxt_iint16
-    subroutine  loadtxt_iint32(filename, d, skiprows, max_rows, fmt, delimiter)
-      !! version: experimental
-      !!
-      !! Loads a 2D array from a text file.
-      !!
-      !! Arguments
-      !! ---------
-      !!
-      !! Filename to load the array from
-      character(len=*), intent(in) :: filename
-      !! The array 'd' will be automatically allocated with the correct dimensions
-      integer(int32), allocatable, intent(out) :: d(:,:)
-      !! Skip the first `skiprows` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
-      integer, intent(in), optional :: skiprows
-      !! Read `max_rows` lines of content after `skiprows` lines.
-      !! A negative value results in reading all lines.
-      !! A value of zero results in no lines to be read.
-      !! The default value is -1.
-      integer, intent(in), optional :: max_rows
-      character(len=*), intent(in), optional :: fmt
-      character(len=1), intent(in), optional :: delimiter
-      character(len=:), allocatable :: fmt_
-      character(len=1) :: delimiter_
-      !!
-      !! Example
-      !! -------
-      !!
-      !!```fortran
-      !! integer(int32), allocatable :: data(:, :)
-      !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
-      !!```
-      !!
-      !! Where 'log.txt' contains for example::
-      !!
-      !!     1 2 3
-      !!     2 4 6
-      !!     8 9 10
-      !!     11 12 13
-      !!     ...
-      !!
-      integer :: s
-      integer :: nrow, ncol, i, j, ios, skiprows_, max_rows_, istart, iend
-      character(len=:), allocatable :: line, iomsg_
-      character(len=1024) :: iomsg, msgout
-
-      skiprows_ = max(optval(skiprows, 0), 0)
-      max_rows_ = optval(max_rows, -1)
-      delimiter_ = optval(delimiter, delimiter_default)
-
-      s = open(filename)
-
-      ! determine number or rows
-      nrow = number_of_rows(s)
-      skiprows_ = min(skiprows_, nrow)
-      if ( max_rows_ < 0 .or. max_rows_ > (nrow - skiprows_) ) max_rows_ = nrow - skiprows_
-
-      ! determine number of columns
-      ncol = 0
-      if ( skiprows_ < nrow ) ncol = number_of_columns(s, skiprows=skiprows_, delimiter=delimiter_)
-
-      allocate(d(max_rows_, ncol))
-      if (max_rows_ == 0 .or. ncol == 0) return
-
-      do i = 1, skiprows_
-        read(s, *, iostat=ios, iomsg=iomsg)
-        
-        if (ios/=0) then 
-           write(msgout,1) trim(iomsg),i,trim(filename) 
-           1 format('loadtxt: error <',a,'> skipping line ',i0,' of ',a,'.')
-           call error_stop(msg=trim(msgout))
-        end if
-        
-      end do
-      
-      ! Default to format used for savetxt if fmt not specified.
-      fmt_ = optval(fmt, "*")
-
-      if ( fmt_ == '*' ) then
-        ! Use list directed read if user has specified fmt='*'
-        if (is_blank(delimiter_) .or. delimiter_ == ",") then
-          do i = 1, max_rows_
-            read (s,*,iostat=ios,iomsg=iomsg) d(i, :)
+        fout = filename           ! fout is used for unified error message later
             
-            if (ios/=0) then 
-              write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-              call error_stop(msg=trim(msgout))
-            end if          
-            
-          enddo
-        ! Otherwise read each value separately
+        !----------------------------------------- Load file in a single string
+        inquire (unit=unit, size=fsze)
+        if(fsze == 0) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: file empty'
+            call error_stop(msg=trim(msgout))
         else
-          do i = 1, max_rows_
-            call get_line(s, line, ios, iomsg_)
-            if (ios/=0) then 
-               write(msgout,2) trim(iomsg_),size(d,2),i,trim(filename)
-               call error_stop(msg=trim(msgout))
+            allocate (character(fsze) :: ff)
+            read (unit, iostat=iostat, iomsg=iomsg) ff
+            if (iostat /= 0) then
+                write(msgout,'(a)') "loadtxt: error reading file "//trim(fout)//"("//trim(iomsg)//")"
+                call error_stop(msg=trim(msgout))
             end if
-  
-            istart = 0
-            do j = 1, ncol - 1
-              iend = index(line(istart+1:), delimiter_)
-              read (line(istart+1:istart+iend-1),*,iostat=ios,iomsg=iomsg) d(i, j)
-              if (ios/=0) then 
-                 write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-                 call error_stop(msg=trim(msgout))
-              end if
-              istart = istart + iend
+        end if
+        close (unit)
+
+        ffp => ff
+        start_effective = 1     ! Start after skiplines
+
+        !----------------------------------------- Count lines and columns
+        nrows = 0               ! Total number of rows (including empty and commented lines)
+        nrows_effective = 0     ! rows with data
+        ncols = 0
+        do while (len(ffp) > 0)
+            line_end = shift_to_eol(ffp)
+            if (line_end > len(ffp)) exit  ! No more lines
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Skip initial blanks in line
+            nrows = nrows + 1
+            if (nrows <= skiplines_) then
+                start_effective = start_effective + line_end ! Remember position to use aS starting point when reading
+                ffp => ffp(line_end + 1:) ! Skip the line
+                cycle
+            end if
+
+            if (starts_with(ffp(line_start:), comment_) .or. (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+            nrows_effective = nrows_effective + 1
+            !
+            ! if ncols is not set yet, determine the number of columns
+            if (ncols == 0) ncols = number_cols_line(ffp(line_start:line_end), delim_, comment_)
+            ffp => ffp(line_end + 1:) ! go to next line
+        end do
+
+        !----------------------------------------- Allocate and read data
+
+        max_rows_ = min(optval(max_rows, nrows_effective), nrows_effective)
+        ! If there is no data we will return an empty array
+        if ((max_rows_ <= 0) .or. (ncols == 0)) then
+            allocate (d(0, 0))
+            return
+        end if
+
+        if (present(usecols)) then ! user set columns to extract
+            usecols_ = usecols
+        else                    ! extract all columns
+            usecols_ = [(j, j=1, ncols)]
+        end if
+        allocate (d(max_rows_, size(usecols_)))
+        allocate (cols(ncols))  ! Used to hold each row
+
+        row_effective = 0
+        ffp => ff(start_effective:) ! Reset pointer to the beginning of the file after skiplines
+        nrows = nrows - skiplines_
+
+        do row = 1, nrows
+            line_end = shift_to_eol(ffp)
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Avoid initial blanks in line
+
+            if (starts_with(ffp(line_start:), comment_) .or. &
+                (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+
+            row_effective = row_effective + 1
+            do j = 1, ncols     ! Read a row
+                cols(j) = to_num_from_stream(ffp, cols(j))
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+
+                if (scan(ffp(1:1), nl) /= 0) then ! If EOL => no more cols
+                    exit
+                end if
             end do
-  
-            read (line(istart+1:),*,iostat=ios,iomsg=iomsg) d(i, ncol)
-            if (ios/=0) then 
-               write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-               call error_stop(msg=trim(msgout))
-            end if          
-            
-          enddo
+            ! Copy the columns of the current row to d(row_effective,:)
+            do j = 1, size(usecols_)
+                d(row_effective, j) = cols(usecols_(j))
+            end do
+
+            if (row_effective >= max_rows_) return
+            line_end = shift_to_eol(ffp)
+            ffp => ffp(line_end + 1:)
+        end do
+
+    end subroutine loadtxt_iint32f
+    subroutine loadtxt_iint64f (filename, d, comments, delimiter, skiplines, max_rows, usecols)
+        !! version: experimental
+        !!
+        !! Loads a 2D array from a text file.
+        !!
+        !! Arguments
+        !! ---------
+        !!
+        !! Filename with the array to load
+        character(len=*), intent(in) :: filename  ! File to save the array to
+        !! The array 'd' will be automatically allocated with the correct dimensions
+        integer(int64), allocatable, intent(out) :: d(:, :) 
+        integer, intent(in), optional :: skiplines !! Skip the first `skiplines` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
+        integer, intent(in), optional :: max_rows !! Read `max_rows` lines of content after `skiplines` lines. A negative value results in reading all lines. A value of zero results in no lines to be read. The default is to read all rows.
+        character(len=*), intent(in), optional :: comments !! from comments symbol until line end everything else will be ignored. The default is '#'.
+        character(len=*), intent(in), optional :: delimiter !! Character used to separate values in a line. The default is any number of spaces and or tabs.
+        integer, intent(in), optional :: usecols(:) !! Array of column indices to read. If not provided, all columns are read.
+        !!
+        !! Example
+        !! -------
+        !!
+        !!```fortran
+        !! integer(int64), allocatable :: data(:, :)
+        !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
+        !!```
+        !!
+        !! Where 'log.txt' contains for example::
+        !!
+        !!     1 2 3
+        !!     2 4 6
+        !!     8 9 10
+        !!     11 12 13
+        !!     ...
+        !!
+        integer :: iostat
+        integer :: skiplines_, max_rows_
+        integer :: fsze, nrows, nrows_effective, ncols, j, start_effective
+        character(:), allocatable, target :: ff
+        character(len=:), pointer :: ffp
+        integer :: line_start, line_end
+        character(len=:), allocatable :: delim_
+        character(len=:), allocatable :: comment_
+        integer, allocatable ::  usecols_(:)
+        character(len=1024) :: iomsg, msgout, fout
+        character(len=16) :: readable
+        logical :: opened
+        !
+        integer :: row, row_effective, err
+        integer(int64), allocatable :: cols(:)
+        integer :: unit
+
+        comment_ = optval(comments, comment_default)
+        delim_ = optval(delimiter, delimiter_default)
+        skiplines_ = optval(skiplines, 0)
+        ! max_rows will be set later, after determining number of rows
+
+        !----------------------------------------- Check file
+        unit = open (filename, "rb", iostat=iostat)
+        if (iostat /= 0) then
+            write(msgout,'(a)') "loadtxt: error opening file "//trim(filename)
+            call error_stop(msg=trim(msgout))
         end if
-      else
-        ! Otherwise pass default or user specified fmt string.
-        do i = 1, max_rows_
-          read (s,fmt_,iostat=ios,iomsg=iomsg) d(i, :)
-          
-          if (ios/=0) then 
-             write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-             call error_stop(msg=trim(msgout))
-          end if             
-          
-        enddo
-      endif
-
-      close(s)
-      
-      2 format('loadtxt: error <',a,'> reading ',i0,' values from line ',i0,' of ',a,'.')
-
-    end subroutine loadtxt_iint32
-    subroutine  loadtxt_iint64(filename, d, skiprows, max_rows, fmt, delimiter)
-      !! version: experimental
-      !!
-      !! Loads a 2D array from a text file.
-      !!
-      !! Arguments
-      !! ---------
-      !!
-      !! Filename to load the array from
-      character(len=*), intent(in) :: filename
-      !! The array 'd' will be automatically allocated with the correct dimensions
-      integer(int64), allocatable, intent(out) :: d(:,:)
-      !! Skip the first `skiprows` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
-      integer, intent(in), optional :: skiprows
-      !! Read `max_rows` lines of content after `skiprows` lines.
-      !! A negative value results in reading all lines.
-      !! A value of zero results in no lines to be read.
-      !! The default value is -1.
-      integer, intent(in), optional :: max_rows
-      character(len=*), intent(in), optional :: fmt
-      character(len=1), intent(in), optional :: delimiter
-      character(len=:), allocatable :: fmt_
-      character(len=1) :: delimiter_
-      !!
-      !! Example
-      !! -------
-      !!
-      !!```fortran
-      !! integer(int64), allocatable :: data(:, :)
-      !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
-      !!```
-      !!
-      !! Where 'log.txt' contains for example::
-      !!
-      !!     1 2 3
-      !!     2 4 6
-      !!     8 9 10
-      !!     11 12 13
-      !!     ...
-      !!
-      integer :: s
-      integer :: nrow, ncol, i, j, ios, skiprows_, max_rows_, istart, iend
-      character(len=:), allocatable :: line, iomsg_
-      character(len=1024) :: iomsg, msgout
-
-      skiprows_ = max(optval(skiprows, 0), 0)
-      max_rows_ = optval(max_rows, -1)
-      delimiter_ = optval(delimiter, delimiter_default)
-
-      s = open(filename)
-
-      ! determine number or rows
-      nrow = number_of_rows(s)
-      skiprows_ = min(skiprows_, nrow)
-      if ( max_rows_ < 0 .or. max_rows_ > (nrow - skiprows_) ) max_rows_ = nrow - skiprows_
-
-      ! determine number of columns
-      ncol = 0
-      if ( skiprows_ < nrow ) ncol = number_of_columns(s, skiprows=skiprows_, delimiter=delimiter_)
-
-      allocate(d(max_rows_, ncol))
-      if (max_rows_ == 0 .or. ncol == 0) return
-
-      do i = 1, skiprows_
-        read(s, *, iostat=ios, iomsg=iomsg)
-        
-        if (ios/=0) then 
-           write(msgout,1) trim(iomsg),i,trim(filename) 
-           1 format('loadtxt: error <',a,'> skipping line ',i0,' of ',a,'.')
-           call error_stop(msg=trim(msgout))
-        end if
-        
-      end do
-      
-      ! Default to format used for savetxt if fmt not specified.
-      fmt_ = optval(fmt, "*")
-
-      if ( fmt_ == '*' ) then
-        ! Use list directed read if user has specified fmt='*'
-        if (is_blank(delimiter_) .or. delimiter_ == ",") then
-          do i = 1, max_rows_
-            read (s,*,iostat=ios,iomsg=iomsg) d(i, :)
+        fout = filename           ! fout is used for unified error message later
             
-            if (ios/=0) then 
-              write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-              call error_stop(msg=trim(msgout))
-            end if          
-            
-          enddo
-        ! Otherwise read each value separately
+        !----------------------------------------- Load file in a single string
+        inquire (unit=unit, size=fsze)
+        if(fsze == 0) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: file empty'
+            call error_stop(msg=trim(msgout))
         else
-          do i = 1, max_rows_
-            call get_line(s, line, ios, iomsg_)
-            if (ios/=0) then 
-               write(msgout,2) trim(iomsg_),size(d,2),i,trim(filename)
-               call error_stop(msg=trim(msgout))
+            allocate (character(fsze) :: ff)
+            read (unit, iostat=iostat, iomsg=iomsg) ff
+            if (iostat /= 0) then
+                write(msgout,'(a)') "loadtxt: error reading file "//trim(fout)//"("//trim(iomsg)//")"
+                call error_stop(msg=trim(msgout))
             end if
-  
-            istart = 0
-            do j = 1, ncol - 1
-              iend = index(line(istart+1:), delimiter_)
-              read (line(istart+1:istart+iend-1),*,iostat=ios,iomsg=iomsg) d(i, j)
-              if (ios/=0) then 
-                 write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-                 call error_stop(msg=trim(msgout))
-              end if
-              istart = istart + iend
+        end if
+        close (unit)
+
+        ffp => ff
+        start_effective = 1     ! Start after skiplines
+
+        !----------------------------------------- Count lines and columns
+        nrows = 0               ! Total number of rows (including empty and commented lines)
+        nrows_effective = 0     ! rows with data
+        ncols = 0
+        do while (len(ffp) > 0)
+            line_end = shift_to_eol(ffp)
+            if (line_end > len(ffp)) exit  ! No more lines
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Skip initial blanks in line
+            nrows = nrows + 1
+            if (nrows <= skiplines_) then
+                start_effective = start_effective + line_end ! Remember position to use aS starting point when reading
+                ffp => ffp(line_end + 1:) ! Skip the line
+                cycle
+            end if
+
+            if (starts_with(ffp(line_start:), comment_) .or. (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+            nrows_effective = nrows_effective + 1
+            !
+            ! if ncols is not set yet, determine the number of columns
+            if (ncols == 0) ncols = number_cols_line(ffp(line_start:line_end), delim_, comment_)
+            ffp => ffp(line_end + 1:) ! go to next line
+        end do
+
+        !----------------------------------------- Allocate and read data
+
+        max_rows_ = min(optval(max_rows, nrows_effective), nrows_effective)
+        ! If there is no data we will return an empty array
+        if ((max_rows_ <= 0) .or. (ncols == 0)) then
+            allocate (d(0, 0))
+            return
+        end if
+
+        if (present(usecols)) then ! user set columns to extract
+            usecols_ = usecols
+        else                    ! extract all columns
+            usecols_ = [(j, j=1, ncols)]
+        end if
+        allocate (d(max_rows_, size(usecols_)))
+        allocate (cols(ncols))  ! Used to hold each row
+
+        row_effective = 0
+        ffp => ff(start_effective:) ! Reset pointer to the beginning of the file after skiplines
+        nrows = nrows - skiplines_
+
+        do row = 1, nrows
+            line_end = shift_to_eol(ffp)
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Avoid initial blanks in line
+
+            if (starts_with(ffp(line_start:), comment_) .or. &
+                (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+
+            row_effective = row_effective + 1
+            do j = 1, ncols     ! Read a row
+                cols(j) = to_num_from_stream(ffp, cols(j))
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+
+                if (scan(ffp(1:1), nl) /= 0) then ! If EOL => no more cols
+                    exit
+                end if
             end do
-  
-            read (line(istart+1:),*,iostat=ios,iomsg=iomsg) d(i, ncol)
-            if (ios/=0) then 
-               write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-               call error_stop(msg=trim(msgout))
-            end if          
-            
-          enddo
+            ! Copy the columns of the current row to d(row_effective,:)
+            do j = 1, size(usecols_)
+                d(row_effective, j) = cols(usecols_(j))
+            end do
+
+            if (row_effective >= max_rows_) return
+            line_end = shift_to_eol(ffp)
+            ffp => ffp(line_end + 1:)
+        end do
+
+    end subroutine loadtxt_iint64f
+    subroutine loadtxt_cspf (filename, d, comments, delimiter, skiplines, max_rows, usecols)
+        !! version: experimental
+        !!
+        !! Loads a 2D array from a text file.
+        !!
+        !! Arguments
+        !! ---------
+        !!
+        !! Filename with the array to load
+        character(len=*), intent(in) :: filename  ! File to save the array to
+        !! The array 'd' will be automatically allocated with the correct dimensions
+        complex(sp), allocatable, intent(out) :: d(:, :) 
+        integer, intent(in), optional :: skiplines !! Skip the first `skiplines` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
+        integer, intent(in), optional :: max_rows !! Read `max_rows` lines of content after `skiplines` lines. A negative value results in reading all lines. A value of zero results in no lines to be read. The default is to read all rows.
+        character(len=*), intent(in), optional :: comments !! from comments symbol until line end everything else will be ignored. The default is '#'.
+        character(len=*), intent(in), optional :: delimiter !! Character used to separate values in a line. The default is any number of spaces and or tabs.
+        integer, intent(in), optional :: usecols(:) !! Array of column indices to read. If not provided, all columns are read.
+        !!
+        !! Example
+        !! -------
+        !!
+        !!```fortran
+        !! complex(sp), allocatable :: data(:, :)
+        !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
+        !!```
+        !!
+        !! Where 'log.txt' contains for example::
+        !!
+        !!     1 2 3
+        !!     2 4 6
+        !!     8 9 10
+        !!     11 12 13
+        !!     ...
+        !!
+        integer :: iostat
+        integer :: skiplines_, max_rows_
+        integer :: fsze, nrows, nrows_effective, ncols, j, start_effective
+        character(:), allocatable, target :: ff
+        character(len=:), pointer :: ffp
+        integer :: line_start, line_end
+        character(len=:), allocatable :: delim_
+        character(len=:), allocatable :: comment_
+        integer, allocatable ::  usecols_(:)
+        character(len=1024) :: iomsg, msgout, fout
+        character(len=16) :: readable
+        logical :: opened
+        !
+        integer :: row, row_effective, err
+        complex(sp), allocatable :: cols(:)
+        real(sp) :: reval, imval
+        integer :: unit
+
+        comment_ = optval(comments, comment_default)
+        delim_ = optval(delimiter, delimiter_default)
+        skiplines_ = optval(skiplines, 0)
+        ! max_rows will be set later, after determining number of rows
+
+        !----------------------------------------- Check file
+        unit = open (filename, "rb", iostat=iostat)
+        if (iostat /= 0) then
+            write(msgout,'(a)') "loadtxt: error opening file "//trim(filename)
+            call error_stop(msg=trim(msgout))
         end if
-      else
-        ! Otherwise pass default or user specified fmt string.
-        do i = 1, max_rows_
-          read (s,fmt_,iostat=ios,iomsg=iomsg) d(i, :)
-          
-          if (ios/=0) then 
-             write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-             call error_stop(msg=trim(msgout))
-          end if             
-          
-        enddo
-      endif
-
-      close(s)
-      
-      2 format('loadtxt: error <',a,'> reading ',i0,' values from line ',i0,' of ',a,'.')
-
-    end subroutine loadtxt_iint64
-    subroutine  loadtxt_csp(filename, d, skiprows, max_rows, fmt, delimiter)
-      !! version: experimental
-      !!
-      !! Loads a 2D array from a text file.
-      !!
-      !! Arguments
-      !! ---------
-      !!
-      !! Filename to load the array from
-      character(len=*), intent(in) :: filename
-      !! The array 'd' will be automatically allocated with the correct dimensions
-      complex(sp), allocatable, intent(out) :: d(:,:)
-      !! Skip the first `skiprows` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
-      integer, intent(in), optional :: skiprows
-      !! Read `max_rows` lines of content after `skiprows` lines.
-      !! A negative value results in reading all lines.
-      !! A value of zero results in no lines to be read.
-      !! The default value is -1.
-      integer, intent(in), optional :: max_rows
-      character(len=*), intent(in), optional :: fmt
-      character(len=1), intent(in), optional :: delimiter
-      character(len=:), allocatable :: fmt_
-      character(len=1) :: delimiter_
-      !!
-      !! Example
-      !! -------
-      !!
-      !!```fortran
-      !! complex(sp), allocatable :: data(:, :)
-      !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
-      !!```
-      !!
-      !! Where 'log.txt' contains for example::
-      !!
-      !!     1 2 3
-      !!     2 4 6
-      !!     8 9 10
-      !!     11 12 13
-      !!     ...
-      !!
-      integer :: s
-      integer :: nrow, ncol, i, j, ios, skiprows_, max_rows_, istart, iend
-      character(len=:), allocatable :: line, iomsg_
-      character(len=1024) :: iomsg, msgout
-
-      skiprows_ = max(optval(skiprows, 0), 0)
-      max_rows_ = optval(max_rows, -1)
-      delimiter_ = optval(delimiter, delimiter_default)
-
-      s = open(filename)
-
-      ! determine number or rows
-      nrow = number_of_rows(s)
-      skiprows_ = min(skiprows_, nrow)
-      if ( max_rows_ < 0 .or. max_rows_ > (nrow - skiprows_) ) max_rows_ = nrow - skiprows_
-
-      ! determine number of columns
-      ncol = 0
-      if ( skiprows_ < nrow ) ncol = number_of_columns(s, skiprows=skiprows_, delimiter=delimiter_)
-      ncol = ncol / 2
-
-      allocate(d(max_rows_, ncol))
-      if (max_rows_ == 0 .or. ncol == 0) return
-
-      do i = 1, skiprows_
-        read(s, *, iostat=ios, iomsg=iomsg)
-        
-        if (ios/=0) then 
-           write(msgout,1) trim(iomsg),i,trim(filename) 
-           1 format('loadtxt: error <',a,'> skipping line ',i0,' of ',a,'.')
-           call error_stop(msg=trim(msgout))
-        end if
-        
-      end do
-      
-      ! Default to format used for savetxt if fmt not specified.
-      fmt_ = optval(fmt, "(*"//FMT_COMPLEX_sp(1:len(FMT_COMPLEX_sp)-1)//",:,1x))")
-
-      if ( fmt_ == '*' ) then
-        ! Use list directed read if user has specified fmt='*'
-        if (is_blank(delimiter_) .or. delimiter_ == ",") then
-          do i = 1, max_rows_
-            read (s,*,iostat=ios,iomsg=iomsg) d(i, :)
+        fout = filename           ! fout is used for unified error message later
             
-            if (ios/=0) then 
-              write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-              call error_stop(msg=trim(msgout))
-            end if          
-            
-          enddo
-        ! Otherwise read each value separately
+        !----------------------------------------- Load file in a single string
+        inquire (unit=unit, size=fsze)
+        if(fsze == 0) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: file empty'
+            call error_stop(msg=trim(msgout))
         else
-          do i = 1, max_rows_
-            call get_line(s, line, ios, iomsg_)
-            if (ios/=0) then 
-               write(msgout,2) trim(iomsg_),size(d,2),i,trim(filename)
-               call error_stop(msg=trim(msgout))
+            allocate (character(fsze) :: ff)
+            read (unit, iostat=iostat, iomsg=iomsg) ff
+            if (iostat /= 0) then
+                write(msgout,'(a)') "loadtxt: error reading file "//trim(fout)//"("//trim(iomsg)//")"
+                call error_stop(msg=trim(msgout))
             end if
-  
-            istart = 0
-            do j = 1, ncol - 1
-              iend = index(line(istart+1:), delimiter_)
-              read (line(istart+1:istart+iend-1),*,iostat=ios,iomsg=iomsg) d(i, j)
-              if (ios/=0) then 
-                 write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-                 call error_stop(msg=trim(msgout))
-              end if
-              istart = istart + iend
+        end if
+        close (unit)
+
+        ffp => ff
+        start_effective = 1     ! Start after skiplines
+
+        !----------------------------------------- Count lines and columns
+        nrows = 0               ! Total number of rows (including empty and commented lines)
+        nrows_effective = 0     ! rows with data
+        ncols = 0
+        do while (len(ffp) > 0)
+            line_end = shift_to_eol(ffp)
+            if (line_end > len(ffp)) exit  ! No more lines
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Skip initial blanks in line
+            nrows = nrows + 1
+            if (nrows <= skiplines_) then
+                start_effective = start_effective + line_end ! Remember position to use aS starting point when reading
+                ffp => ffp(line_end + 1:) ! Skip the line
+                cycle
+            end if
+
+            if (starts_with(ffp(line_start:), comment_) .or. (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+            nrows_effective = nrows_effective + 1
+            !
+            ! if ncols is not set yet, determine the number of columns
+            if (ncols == 0) ncols = number_cols_line(ffp(line_start:line_end), delim_, comment_)
+            ffp => ffp(line_end + 1:) ! go to next line
+        end do
+
+        !----------------------------------------- Allocate and read data
+        ncols = ncols / 2
+
+        max_rows_ = min(optval(max_rows, nrows_effective), nrows_effective)
+        ! If there is no data we will return an empty array
+        if ((max_rows_ <= 0) .or. (ncols == 0)) then
+            allocate (d(0, 0))
+            return
+        end if
+
+        if (present(usecols)) then ! user set columns to extract
+            usecols_ = usecols
+        else                    ! extract all columns
+            usecols_ = [(j, j=1, ncols)]
+        end if
+        allocate (d(max_rows_, size(usecols_)))
+        allocate (cols(ncols))  ! Used to hold each row
+
+        row_effective = 0
+        ffp => ff(start_effective:) ! Reset pointer to the beginning of the file after skiplines
+        nrows = nrows - skiplines_
+
+        do row = 1, nrows
+            line_end = shift_to_eol(ffp)
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Avoid initial blanks in line
+
+            if (starts_with(ffp(line_start:), comment_) .or. &
+                (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+
+            row_effective = row_effective + 1
+            do j = 1, ncols     ! Read a row
+                reval = to_num_from_stream(ffp, reval)
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+                imval = to_num_from_stream(ffp, imval)
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+                cols(j) = complex(reval,imval)
+
+                if (scan(ffp(1:1), nl) /= 0) then ! If EOL => no more cols
+                    exit
+                end if
             end do
-  
-            read (line(istart+1:),*,iostat=ios,iomsg=iomsg) d(i, ncol)
-            if (ios/=0) then 
-               write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-               call error_stop(msg=trim(msgout))
-            end if          
-            
-          enddo
+            ! Copy the columns of the current row to d(row_effective,:)
+            do j = 1, size(usecols_)
+                d(row_effective, j) = cols(usecols_(j))
+            end do
+
+            if (row_effective >= max_rows_) return
+            line_end = shift_to_eol(ffp)
+            ffp => ffp(line_end + 1:)
+        end do
+
+    end subroutine loadtxt_cspf
+    subroutine loadtxt_cdpf (filename, d, comments, delimiter, skiplines, max_rows, usecols)
+        !! version: experimental
+        !!
+        !! Loads a 2D array from a text file.
+        !!
+        !! Arguments
+        !! ---------
+        !!
+        !! Filename with the array to load
+        character(len=*), intent(in) :: filename  ! File to save the array to
+        !! The array 'd' will be automatically allocated with the correct dimensions
+        complex(dp), allocatable, intent(out) :: d(:, :) 
+        integer, intent(in), optional :: skiplines !! Skip the first `skiplines` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
+        integer, intent(in), optional :: max_rows !! Read `max_rows` lines of content after `skiplines` lines. A negative value results in reading all lines. A value of zero results in no lines to be read. The default is to read all rows.
+        character(len=*), intent(in), optional :: comments !! from comments symbol until line end everything else will be ignored. The default is '#'.
+        character(len=*), intent(in), optional :: delimiter !! Character used to separate values in a line. The default is any number of spaces and or tabs.
+        integer, intent(in), optional :: usecols(:) !! Array of column indices to read. If not provided, all columns are read.
+        !!
+        !! Example
+        !! -------
+        !!
+        !!```fortran
+        !! complex(dp), allocatable :: data(:, :)
+        !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
+        !!```
+        !!
+        !! Where 'log.txt' contains for example::
+        !!
+        !!     1 2 3
+        !!     2 4 6
+        !!     8 9 10
+        !!     11 12 13
+        !!     ...
+        !!
+        integer :: iostat
+        integer :: skiplines_, max_rows_
+        integer :: fsze, nrows, nrows_effective, ncols, j, start_effective
+        character(:), allocatable, target :: ff
+        character(len=:), pointer :: ffp
+        integer :: line_start, line_end
+        character(len=:), allocatable :: delim_
+        character(len=:), allocatable :: comment_
+        integer, allocatable ::  usecols_(:)
+        character(len=1024) :: iomsg, msgout, fout
+        character(len=16) :: readable
+        logical :: opened
+        !
+        integer :: row, row_effective, err
+        complex(dp), allocatable :: cols(:)
+        real(dp) :: reval, imval
+        integer :: unit
+
+        comment_ = optval(comments, comment_default)
+        delim_ = optval(delimiter, delimiter_default)
+        skiplines_ = optval(skiplines, 0)
+        ! max_rows will be set later, after determining number of rows
+
+        !----------------------------------------- Check file
+        unit = open (filename, "rb", iostat=iostat)
+        if (iostat /= 0) then
+            write(msgout,'(a)') "loadtxt: error opening file "//trim(filename)
+            call error_stop(msg=trim(msgout))
         end if
-      else
-        ! Otherwise pass default or user specified fmt string.
-        do i = 1, max_rows_
-          read (s,fmt_,iostat=ios,iomsg=iomsg) d(i, :)
-          
-          if (ios/=0) then 
-             write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-             call error_stop(msg=trim(msgout))
-          end if             
-          
-        enddo
-      endif
-
-      close(s)
-      
-      2 format('loadtxt: error <',a,'> reading ',i0,' values from line ',i0,' of ',a,'.')
-
-    end subroutine loadtxt_csp
-    subroutine  loadtxt_cdp(filename, d, skiprows, max_rows, fmt, delimiter)
-      !! version: experimental
-      !!
-      !! Loads a 2D array from a text file.
-      !!
-      !! Arguments
-      !! ---------
-      !!
-      !! Filename to load the array from
-      character(len=*), intent(in) :: filename
-      !! The array 'd' will be automatically allocated with the correct dimensions
-      complex(dp), allocatable, intent(out) :: d(:,:)
-      !! Skip the first `skiprows` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
-      integer, intent(in), optional :: skiprows
-      !! Read `max_rows` lines of content after `skiprows` lines.
-      !! A negative value results in reading all lines.
-      !! A value of zero results in no lines to be read.
-      !! The default value is -1.
-      integer, intent(in), optional :: max_rows
-      character(len=*), intent(in), optional :: fmt
-      character(len=1), intent(in), optional :: delimiter
-      character(len=:), allocatable :: fmt_
-      character(len=1) :: delimiter_
-      !!
-      !! Example
-      !! -------
-      !!
-      !!```fortran
-      !! complex(dp), allocatable :: data(:, :)
-      !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
-      !!```
-      !!
-      !! Where 'log.txt' contains for example::
-      !!
-      !!     1 2 3
-      !!     2 4 6
-      !!     8 9 10
-      !!     11 12 13
-      !!     ...
-      !!
-      integer :: s
-      integer :: nrow, ncol, i, j, ios, skiprows_, max_rows_, istart, iend
-      character(len=:), allocatable :: line, iomsg_
-      character(len=1024) :: iomsg, msgout
-
-      skiprows_ = max(optval(skiprows, 0), 0)
-      max_rows_ = optval(max_rows, -1)
-      delimiter_ = optval(delimiter, delimiter_default)
-
-      s = open(filename)
-
-      ! determine number or rows
-      nrow = number_of_rows(s)
-      skiprows_ = min(skiprows_, nrow)
-      if ( max_rows_ < 0 .or. max_rows_ > (nrow - skiprows_) ) max_rows_ = nrow - skiprows_
-
-      ! determine number of columns
-      ncol = 0
-      if ( skiprows_ < nrow ) ncol = number_of_columns(s, skiprows=skiprows_, delimiter=delimiter_)
-      ncol = ncol / 2
-
-      allocate(d(max_rows_, ncol))
-      if (max_rows_ == 0 .or. ncol == 0) return
-
-      do i = 1, skiprows_
-        read(s, *, iostat=ios, iomsg=iomsg)
-        
-        if (ios/=0) then 
-           write(msgout,1) trim(iomsg),i,trim(filename) 
-           1 format('loadtxt: error <',a,'> skipping line ',i0,' of ',a,'.')
-           call error_stop(msg=trim(msgout))
-        end if
-        
-      end do
-      
-      ! Default to format used for savetxt if fmt not specified.
-      fmt_ = optval(fmt, "(*"//FMT_COMPLEX_dp(1:len(FMT_COMPLEX_dp)-1)//",:,1x))")
-
-      if ( fmt_ == '*' ) then
-        ! Use list directed read if user has specified fmt='*'
-        if (is_blank(delimiter_) .or. delimiter_ == ",") then
-          do i = 1, max_rows_
-            read (s,*,iostat=ios,iomsg=iomsg) d(i, :)
+        fout = filename           ! fout is used for unified error message later
             
-            if (ios/=0) then 
-              write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-              call error_stop(msg=trim(msgout))
-            end if          
-            
-          enddo
-        ! Otherwise read each value separately
+        !----------------------------------------- Load file in a single string
+        inquire (unit=unit, size=fsze)
+        if(fsze == 0) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: file empty'
+            call error_stop(msg=trim(msgout))
         else
-          do i = 1, max_rows_
-            call get_line(s, line, ios, iomsg_)
-            if (ios/=0) then 
-               write(msgout,2) trim(iomsg_),size(d,2),i,trim(filename)
-               call error_stop(msg=trim(msgout))
+            allocate (character(fsze) :: ff)
+            read (unit, iostat=iostat, iomsg=iomsg) ff
+            if (iostat /= 0) then
+                write(msgout,'(a)') "loadtxt: error reading file "//trim(fout)//"("//trim(iomsg)//")"
+                call error_stop(msg=trim(msgout))
             end if
-  
-            istart = 0
-            do j = 1, ncol - 1
-              iend = index(line(istart+1:), delimiter_)
-              read (line(istart+1:istart+iend-1),*,iostat=ios,iomsg=iomsg) d(i, j)
-              if (ios/=0) then 
-                 write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-                 call error_stop(msg=trim(msgout))
-              end if
-              istart = istart + iend
-            end do
-  
-            read (line(istart+1:),*,iostat=ios,iomsg=iomsg) d(i, ncol)
-            if (ios/=0) then 
-               write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-               call error_stop(msg=trim(msgout))
-            end if          
-            
-          enddo
         end if
-      else
-        ! Otherwise pass default or user specified fmt string.
-        do i = 1, max_rows_
-          read (s,fmt_,iostat=ios,iomsg=iomsg) d(i, :)
-          
-          if (ios/=0) then 
-             write(msgout,2) trim(iomsg),size(d,2),i,trim(filename)
-             call error_stop(msg=trim(msgout))
-          end if             
-          
-        enddo
-      endif
+        close (unit)
 
-      close(s)
-      
-      2 format('loadtxt: error <',a,'> reading ',i0,' values from line ',i0,' of ',a,'.')
+        ffp => ff
+        start_effective = 1     ! Start after skiplines
 
-    end subroutine loadtxt_cdp
+        !----------------------------------------- Count lines and columns
+        nrows = 0               ! Total number of rows (including empty and commented lines)
+        nrows_effective = 0     ! rows with data
+        ncols = 0
+        do while (len(ffp) > 0)
+            line_end = shift_to_eol(ffp)
+            if (line_end > len(ffp)) exit  ! No more lines
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Skip initial blanks in line
+            nrows = nrows + 1
+            if (nrows <= skiplines_) then
+                start_effective = start_effective + line_end ! Remember position to use aS starting point when reading
+                ffp => ffp(line_end + 1:) ! Skip the line
+                cycle
+            end if
 
-    subroutine savetxt_rspf (filename, d, delimiter, fmt, header, footer, comments)
+            if (starts_with(ffp(line_start:), comment_) .or. (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+            nrows_effective = nrows_effective + 1
+            !
+            ! if ncols is not set yet, determine the number of columns
+            if (ncols == 0) ncols = number_cols_line(ffp(line_start:line_end), delim_, comment_)
+            ffp => ffp(line_end + 1:) ! go to next line
+        end do
+
+        !----------------------------------------- Allocate and read data
+        ncols = ncols / 2
+
+        max_rows_ = min(optval(max_rows, nrows_effective), nrows_effective)
+        ! If there is no data we will return an empty array
+        if ((max_rows_ <= 0) .or. (ncols == 0)) then
+            allocate (d(0, 0))
+            return
+        end if
+
+        if (present(usecols)) then ! user set columns to extract
+            usecols_ = usecols
+        else                    ! extract all columns
+            usecols_ = [(j, j=1, ncols)]
+        end if
+        allocate (d(max_rows_, size(usecols_)))
+        allocate (cols(ncols))  ! Used to hold each row
+
+        row_effective = 0
+        ffp => ff(start_effective:) ! Reset pointer to the beginning of the file after skiplines
+        nrows = nrows - skiplines_
+
+        do row = 1, nrows
+            line_end = shift_to_eol(ffp)
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Avoid initial blanks in line
+
+            if (starts_with(ffp(line_start:), comment_) .or. &
+                (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+
+            row_effective = row_effective + 1
+            do j = 1, ncols     ! Read a row
+                reval = to_num_from_stream(ffp, reval)
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+                imval = to_num_from_stream(ffp, imval)
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+                cols(j) = complex(reval,imval)
+
+                if (scan(ffp(1:1), nl) /= 0) then ! If EOL => no more cols
+                    exit
+                end if
+            end do
+            ! Copy the columns of the current row to d(row_effective,:)
+            do j = 1, size(usecols_)
+                d(row_effective, j) = cols(usecols_(j))
+            end do
+
+            if (row_effective >= max_rows_) return
+            line_end = shift_to_eol(ffp)
+            ffp => ffp(line_end + 1:)
+        end do
+
+    end subroutine loadtxt_cdpf
+    subroutine loadtxt_rspu (unit, d, comments, delimiter, skiplines, max_rows, usecols)
+        !! version: experimental
+        !!
+        !! Loads a 2D array from a text file.
+        !!
+        !! Arguments
+        !! ---------
+        !!
+        !! unit of an open file from where to load the array
+        integer, intent(in) :: unit
+        !! The array 'd' will be automatically allocated with the correct dimensions
+        real(sp), allocatable, intent(out) :: d(:, :) 
+        integer, intent(in), optional :: skiplines !! Skip the first `skiplines` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
+        integer, intent(in), optional :: max_rows !! Read `max_rows` lines of content after `skiplines` lines. A negative value results in reading all lines. A value of zero results in no lines to be read. The default is to read all rows.
+        character(len=*), intent(in), optional :: comments !! from comments symbol until line end everything else will be ignored. The default is '#'.
+        character(len=*), intent(in), optional :: delimiter !! Character used to separate values in a line. The default is any number of spaces and or tabs.
+        integer, intent(in), optional :: usecols(:) !! Array of column indices to read. If not provided, all columns are read.
+        !!
+        !! Example
+        !! -------
+        !!
+        !!```fortran
+        !! real(sp), allocatable :: data(:, :)
+        !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
+        !!```
+        !!
+        !! Where 'log.txt' contains for example::
+        !!
+        !!     1 2 3
+        !!     2 4 6
+        !!     8 9 10
+        !!     11 12 13
+        !!     ...
+        !!
+        integer :: iostat
+        integer :: skiplines_, max_rows_
+        integer :: fsze, nrows, nrows_effective, ncols, j, start_effective
+        character(:), allocatable, target :: ff
+        character(len=:), pointer :: ffp
+        integer :: line_start, line_end
+        character(len=:), allocatable :: delim_
+        character(len=:), allocatable :: comment_
+        integer, allocatable ::  usecols_(:)
+        character(len=1024) :: iomsg, msgout, fout
+        character(len=16) :: readable
+        logical :: opened
+        !
+        integer :: row, row_effective, err
+        real(sp), allocatable :: cols(:)
+
+        comment_ = optval(comments, comment_default)
+        delim_ = optval(delimiter, delimiter_default)
+        skiplines_ = optval(skiplines, 0)
+        ! max_rows will be set later, after determining number of rows
+
+        !----------------------------------------- Check file
+        ! first argument is unit
+        inquire (unit=unit, opened=opened, action=readable) 
+        if((.not. opened) .or. (readable(1:1) /= 'R')) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: unit ',unit,' not open for reading'
+            call error_stop(msg=trim(msgout))
+        end if
+        write(fout,'(i0)') unit
+        fout = adjustl(fout)  ! fout is used for unified error message later
+            
+        !----------------------------------------- Load file in a single string
+        inquire (unit=unit, size=fsze)
+        if(fsze == 0) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: file empty'
+            call error_stop(msg=trim(msgout))
+        else
+            allocate (character(fsze) :: ff)
+            read (unit, iostat=iostat, iomsg=iomsg) ff
+            if (iostat /= 0) then
+                write(msgout,'(a)') "loadtxt: error reading file "//trim(fout)//"("//trim(iomsg)//")"
+                call error_stop(msg=trim(msgout))
+            end if
+        end if
+
+        ffp => ff
+        start_effective = 1     ! Start after skiplines
+
+        !----------------------------------------- Count lines and columns
+        nrows = 0               ! Total number of rows (including empty and commented lines)
+        nrows_effective = 0     ! rows with data
+        ncols = 0
+        do while (len(ffp) > 0)
+            line_end = shift_to_eol(ffp)
+            if (line_end > len(ffp)) exit  ! No more lines
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Skip initial blanks in line
+            nrows = nrows + 1
+            if (nrows <= skiplines_) then
+                start_effective = start_effective + line_end ! Remember position to use aS starting point when reading
+                ffp => ffp(line_end + 1:) ! Skip the line
+                cycle
+            end if
+
+            if (starts_with(ffp(line_start:), comment_) .or. (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+            nrows_effective = nrows_effective + 1
+            !
+            ! if ncols is not set yet, determine the number of columns
+            if (ncols == 0) ncols = number_cols_line(ffp(line_start:line_end), delim_, comment_)
+            ffp => ffp(line_end + 1:) ! go to next line
+        end do
+
+        !----------------------------------------- Allocate and read data
+
+        max_rows_ = min(optval(max_rows, nrows_effective), nrows_effective)
+        ! If there is no data we will return an empty array
+        if ((max_rows_ <= 0) .or. (ncols == 0)) then
+            allocate (d(0, 0))
+            return
+        end if
+
+        if (present(usecols)) then ! user set columns to extract
+            usecols_ = usecols
+        else                    ! extract all columns
+            usecols_ = [(j, j=1, ncols)]
+        end if
+        allocate (d(max_rows_, size(usecols_)))
+        allocate (cols(ncols))  ! Used to hold each row
+
+        row_effective = 0
+        ffp => ff(start_effective:) ! Reset pointer to the beginning of the file after skiplines
+        nrows = nrows - skiplines_
+
+        do row = 1, nrows
+            line_end = shift_to_eol(ffp)
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Avoid initial blanks in line
+
+            if (starts_with(ffp(line_start:), comment_) .or. &
+                (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+
+            row_effective = row_effective + 1
+            do j = 1, ncols     ! Read a row
+                cols(j) = to_num_from_stream(ffp, cols(j))
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+
+                if (scan(ffp(1:1), nl) /= 0) then ! If EOL => no more cols
+                    exit
+                end if
+            end do
+            ! Copy the columns of the current row to d(row_effective,:)
+            do j = 1, size(usecols_)
+                d(row_effective, j) = cols(usecols_(j))
+            end do
+
+            if (row_effective >= max_rows_) return
+            line_end = shift_to_eol(ffp)
+            ffp => ffp(line_end + 1:)
+        end do
+
+    end subroutine loadtxt_rspu
+    subroutine loadtxt_rdpu (unit, d, comments, delimiter, skiplines, max_rows, usecols)
+        !! version: experimental
+        !!
+        !! Loads a 2D array from a text file.
+        !!
+        !! Arguments
+        !! ---------
+        !!
+        !! unit of an open file from where to load the array
+        integer, intent(in) :: unit
+        !! The array 'd' will be automatically allocated with the correct dimensions
+        real(dp), allocatable, intent(out) :: d(:, :) 
+        integer, intent(in), optional :: skiplines !! Skip the first `skiplines` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
+        integer, intent(in), optional :: max_rows !! Read `max_rows` lines of content after `skiplines` lines. A negative value results in reading all lines. A value of zero results in no lines to be read. The default is to read all rows.
+        character(len=*), intent(in), optional :: comments !! from comments symbol until line end everything else will be ignored. The default is '#'.
+        character(len=*), intent(in), optional :: delimiter !! Character used to separate values in a line. The default is any number of spaces and or tabs.
+        integer, intent(in), optional :: usecols(:) !! Array of column indices to read. If not provided, all columns are read.
+        !!
+        !! Example
+        !! -------
+        !!
+        !!```fortran
+        !! real(dp), allocatable :: data(:, :)
+        !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
+        !!```
+        !!
+        !! Where 'log.txt' contains for example::
+        !!
+        !!     1 2 3
+        !!     2 4 6
+        !!     8 9 10
+        !!     11 12 13
+        !!     ...
+        !!
+        integer :: iostat
+        integer :: skiplines_, max_rows_
+        integer :: fsze, nrows, nrows_effective, ncols, j, start_effective
+        character(:), allocatable, target :: ff
+        character(len=:), pointer :: ffp
+        integer :: line_start, line_end
+        character(len=:), allocatable :: delim_
+        character(len=:), allocatable :: comment_
+        integer, allocatable ::  usecols_(:)
+        character(len=1024) :: iomsg, msgout, fout
+        character(len=16) :: readable
+        logical :: opened
+        !
+        integer :: row, row_effective, err
+        real(dp), allocatable :: cols(:)
+
+        comment_ = optval(comments, comment_default)
+        delim_ = optval(delimiter, delimiter_default)
+        skiplines_ = optval(skiplines, 0)
+        ! max_rows will be set later, after determining number of rows
+
+        !----------------------------------------- Check file
+        ! first argument is unit
+        inquire (unit=unit, opened=opened, action=readable) 
+        if((.not. opened) .or. (readable(1:1) /= 'R')) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: unit ',unit,' not open for reading'
+            call error_stop(msg=trim(msgout))
+        end if
+        write(fout,'(i0)') unit
+        fout = adjustl(fout)  ! fout is used for unified error message later
+            
+        !----------------------------------------- Load file in a single string
+        inquire (unit=unit, size=fsze)
+        if(fsze == 0) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: file empty'
+            call error_stop(msg=trim(msgout))
+        else
+            allocate (character(fsze) :: ff)
+            read (unit, iostat=iostat, iomsg=iomsg) ff
+            if (iostat /= 0) then
+                write(msgout,'(a)') "loadtxt: error reading file "//trim(fout)//"("//trim(iomsg)//")"
+                call error_stop(msg=trim(msgout))
+            end if
+        end if
+
+        ffp => ff
+        start_effective = 1     ! Start after skiplines
+
+        !----------------------------------------- Count lines and columns
+        nrows = 0               ! Total number of rows (including empty and commented lines)
+        nrows_effective = 0     ! rows with data
+        ncols = 0
+        do while (len(ffp) > 0)
+            line_end = shift_to_eol(ffp)
+            if (line_end > len(ffp)) exit  ! No more lines
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Skip initial blanks in line
+            nrows = nrows + 1
+            if (nrows <= skiplines_) then
+                start_effective = start_effective + line_end ! Remember position to use aS starting point when reading
+                ffp => ffp(line_end + 1:) ! Skip the line
+                cycle
+            end if
+
+            if (starts_with(ffp(line_start:), comment_) .or. (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+            nrows_effective = nrows_effective + 1
+            !
+            ! if ncols is not set yet, determine the number of columns
+            if (ncols == 0) ncols = number_cols_line(ffp(line_start:line_end), delim_, comment_)
+            ffp => ffp(line_end + 1:) ! go to next line
+        end do
+
+        !----------------------------------------- Allocate and read data
+
+        max_rows_ = min(optval(max_rows, nrows_effective), nrows_effective)
+        ! If there is no data we will return an empty array
+        if ((max_rows_ <= 0) .or. (ncols == 0)) then
+            allocate (d(0, 0))
+            return
+        end if
+
+        if (present(usecols)) then ! user set columns to extract
+            usecols_ = usecols
+        else                    ! extract all columns
+            usecols_ = [(j, j=1, ncols)]
+        end if
+        allocate (d(max_rows_, size(usecols_)))
+        allocate (cols(ncols))  ! Used to hold each row
+
+        row_effective = 0
+        ffp => ff(start_effective:) ! Reset pointer to the beginning of the file after skiplines
+        nrows = nrows - skiplines_
+
+        do row = 1, nrows
+            line_end = shift_to_eol(ffp)
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Avoid initial blanks in line
+
+            if (starts_with(ffp(line_start:), comment_) .or. &
+                (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+
+            row_effective = row_effective + 1
+            do j = 1, ncols     ! Read a row
+                cols(j) = to_num_from_stream(ffp, cols(j))
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+
+                if (scan(ffp(1:1), nl) /= 0) then ! If EOL => no more cols
+                    exit
+                end if
+            end do
+            ! Copy the columns of the current row to d(row_effective,:)
+            do j = 1, size(usecols_)
+                d(row_effective, j) = cols(usecols_(j))
+            end do
+
+            if (row_effective >= max_rows_) return
+            line_end = shift_to_eol(ffp)
+            ffp => ffp(line_end + 1:)
+        end do
+
+    end subroutine loadtxt_rdpu
+    subroutine loadtxt_iint8u (unit, d, comments, delimiter, skiplines, max_rows, usecols)
+        !! version: experimental
+        !!
+        !! Loads a 2D array from a text file.
+        !!
+        !! Arguments
+        !! ---------
+        !!
+        !! unit of an open file from where to load the array
+        integer, intent(in) :: unit
+        !! The array 'd' will be automatically allocated with the correct dimensions
+        integer(int8), allocatable, intent(out) :: d(:, :) 
+        integer, intent(in), optional :: skiplines !! Skip the first `skiplines` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
+        integer, intent(in), optional :: max_rows !! Read `max_rows` lines of content after `skiplines` lines. A negative value results in reading all lines. A value of zero results in no lines to be read. The default is to read all rows.
+        character(len=*), intent(in), optional :: comments !! from comments symbol until line end everything else will be ignored. The default is '#'.
+        character(len=*), intent(in), optional :: delimiter !! Character used to separate values in a line. The default is any number of spaces and or tabs.
+        integer, intent(in), optional :: usecols(:) !! Array of column indices to read. If not provided, all columns are read.
+        !!
+        !! Example
+        !! -------
+        !!
+        !!```fortran
+        !! integer(int8), allocatable :: data(:, :)
+        !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
+        !!```
+        !!
+        !! Where 'log.txt' contains for example::
+        !!
+        !!     1 2 3
+        !!     2 4 6
+        !!     8 9 10
+        !!     11 12 13
+        !!     ...
+        !!
+        integer :: iostat
+        integer :: skiplines_, max_rows_
+        integer :: fsze, nrows, nrows_effective, ncols, j, start_effective
+        character(:), allocatable, target :: ff
+        character(len=:), pointer :: ffp
+        integer :: line_start, line_end
+        character(len=:), allocatable :: delim_
+        character(len=:), allocatable :: comment_
+        integer, allocatable ::  usecols_(:)
+        character(len=1024) :: iomsg, msgout, fout
+        character(len=16) :: readable
+        logical :: opened
+        !
+        integer :: row, row_effective, err
+        integer(int8), allocatable :: cols(:)
+
+        comment_ = optval(comments, comment_default)
+        delim_ = optval(delimiter, delimiter_default)
+        skiplines_ = optval(skiplines, 0)
+        ! max_rows will be set later, after determining number of rows
+
+        !----------------------------------------- Check file
+        ! first argument is unit
+        inquire (unit=unit, opened=opened, action=readable) 
+        if((.not. opened) .or. (readable(1:1) /= 'R')) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: unit ',unit,' not open for reading'
+            call error_stop(msg=trim(msgout))
+        end if
+        write(fout,'(i0)') unit
+        fout = adjustl(fout)  ! fout is used for unified error message later
+            
+        !----------------------------------------- Load file in a single string
+        inquire (unit=unit, size=fsze)
+        if(fsze == 0) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: file empty'
+            call error_stop(msg=trim(msgout))
+        else
+            allocate (character(fsze) :: ff)
+            read (unit, iostat=iostat, iomsg=iomsg) ff
+            if (iostat /= 0) then
+                write(msgout,'(a)') "loadtxt: error reading file "//trim(fout)//"("//trim(iomsg)//")"
+                call error_stop(msg=trim(msgout))
+            end if
+        end if
+
+        ffp => ff
+        start_effective = 1     ! Start after skiplines
+
+        !----------------------------------------- Count lines and columns
+        nrows = 0               ! Total number of rows (including empty and commented lines)
+        nrows_effective = 0     ! rows with data
+        ncols = 0
+        do while (len(ffp) > 0)
+            line_end = shift_to_eol(ffp)
+            if (line_end > len(ffp)) exit  ! No more lines
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Skip initial blanks in line
+            nrows = nrows + 1
+            if (nrows <= skiplines_) then
+                start_effective = start_effective + line_end ! Remember position to use aS starting point when reading
+                ffp => ffp(line_end + 1:) ! Skip the line
+                cycle
+            end if
+
+            if (starts_with(ffp(line_start:), comment_) .or. (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+            nrows_effective = nrows_effective + 1
+            !
+            ! if ncols is not set yet, determine the number of columns
+            if (ncols == 0) ncols = number_cols_line(ffp(line_start:line_end), delim_, comment_)
+            ffp => ffp(line_end + 1:) ! go to next line
+        end do
+
+        !----------------------------------------- Allocate and read data
+
+        max_rows_ = min(optval(max_rows, nrows_effective), nrows_effective)
+        ! If there is no data we will return an empty array
+        if ((max_rows_ <= 0) .or. (ncols == 0)) then
+            allocate (d(0, 0))
+            return
+        end if
+
+        if (present(usecols)) then ! user set columns to extract
+            usecols_ = usecols
+        else                    ! extract all columns
+            usecols_ = [(j, j=1, ncols)]
+        end if
+        allocate (d(max_rows_, size(usecols_)))
+        allocate (cols(ncols))  ! Used to hold each row
+
+        row_effective = 0
+        ffp => ff(start_effective:) ! Reset pointer to the beginning of the file after skiplines
+        nrows = nrows - skiplines_
+
+        do row = 1, nrows
+            line_end = shift_to_eol(ffp)
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Avoid initial blanks in line
+
+            if (starts_with(ffp(line_start:), comment_) .or. &
+                (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+
+            row_effective = row_effective + 1
+            do j = 1, ncols     ! Read a row
+                cols(j) = to_num_from_stream(ffp, cols(j))
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+
+                if (scan(ffp(1:1), nl) /= 0) then ! If EOL => no more cols
+                    exit
+                end if
+            end do
+            ! Copy the columns of the current row to d(row_effective,:)
+            do j = 1, size(usecols_)
+                d(row_effective, j) = cols(usecols_(j))
+            end do
+
+            if (row_effective >= max_rows_) return
+            line_end = shift_to_eol(ffp)
+            ffp => ffp(line_end + 1:)
+        end do
+
+    end subroutine loadtxt_iint8u
+    subroutine loadtxt_iint16u (unit, d, comments, delimiter, skiplines, max_rows, usecols)
+        !! version: experimental
+        !!
+        !! Loads a 2D array from a text file.
+        !!
+        !! Arguments
+        !! ---------
+        !!
+        !! unit of an open file from where to load the array
+        integer, intent(in) :: unit
+        !! The array 'd' will be automatically allocated with the correct dimensions
+        integer(int16), allocatable, intent(out) :: d(:, :) 
+        integer, intent(in), optional :: skiplines !! Skip the first `skiplines` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
+        integer, intent(in), optional :: max_rows !! Read `max_rows` lines of content after `skiplines` lines. A negative value results in reading all lines. A value of zero results in no lines to be read. The default is to read all rows.
+        character(len=*), intent(in), optional :: comments !! from comments symbol until line end everything else will be ignored. The default is '#'.
+        character(len=*), intent(in), optional :: delimiter !! Character used to separate values in a line. The default is any number of spaces and or tabs.
+        integer, intent(in), optional :: usecols(:) !! Array of column indices to read. If not provided, all columns are read.
+        !!
+        !! Example
+        !! -------
+        !!
+        !!```fortran
+        !! integer(int16), allocatable :: data(:, :)
+        !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
+        !!```
+        !!
+        !! Where 'log.txt' contains for example::
+        !!
+        !!     1 2 3
+        !!     2 4 6
+        !!     8 9 10
+        !!     11 12 13
+        !!     ...
+        !!
+        integer :: iostat
+        integer :: skiplines_, max_rows_
+        integer :: fsze, nrows, nrows_effective, ncols, j, start_effective
+        character(:), allocatable, target :: ff
+        character(len=:), pointer :: ffp
+        integer :: line_start, line_end
+        character(len=:), allocatable :: delim_
+        character(len=:), allocatable :: comment_
+        integer, allocatable ::  usecols_(:)
+        character(len=1024) :: iomsg, msgout, fout
+        character(len=16) :: readable
+        logical :: opened
+        !
+        integer :: row, row_effective, err
+        integer(int16), allocatable :: cols(:)
+
+        comment_ = optval(comments, comment_default)
+        delim_ = optval(delimiter, delimiter_default)
+        skiplines_ = optval(skiplines, 0)
+        ! max_rows will be set later, after determining number of rows
+
+        !----------------------------------------- Check file
+        ! first argument is unit
+        inquire (unit=unit, opened=opened, action=readable) 
+        if((.not. opened) .or. (readable(1:1) /= 'R')) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: unit ',unit,' not open for reading'
+            call error_stop(msg=trim(msgout))
+        end if
+        write(fout,'(i0)') unit
+        fout = adjustl(fout)  ! fout is used for unified error message later
+            
+        !----------------------------------------- Load file in a single string
+        inquire (unit=unit, size=fsze)
+        if(fsze == 0) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: file empty'
+            call error_stop(msg=trim(msgout))
+        else
+            allocate (character(fsze) :: ff)
+            read (unit, iostat=iostat, iomsg=iomsg) ff
+            if (iostat /= 0) then
+                write(msgout,'(a)') "loadtxt: error reading file "//trim(fout)//"("//trim(iomsg)//")"
+                call error_stop(msg=trim(msgout))
+            end if
+        end if
+
+        ffp => ff
+        start_effective = 1     ! Start after skiplines
+
+        !----------------------------------------- Count lines and columns
+        nrows = 0               ! Total number of rows (including empty and commented lines)
+        nrows_effective = 0     ! rows with data
+        ncols = 0
+        do while (len(ffp) > 0)
+            line_end = shift_to_eol(ffp)
+            if (line_end > len(ffp)) exit  ! No more lines
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Skip initial blanks in line
+            nrows = nrows + 1
+            if (nrows <= skiplines_) then
+                start_effective = start_effective + line_end ! Remember position to use aS starting point when reading
+                ffp => ffp(line_end + 1:) ! Skip the line
+                cycle
+            end if
+
+            if (starts_with(ffp(line_start:), comment_) .or. (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+            nrows_effective = nrows_effective + 1
+            !
+            ! if ncols is not set yet, determine the number of columns
+            if (ncols == 0) ncols = number_cols_line(ffp(line_start:line_end), delim_, comment_)
+            ffp => ffp(line_end + 1:) ! go to next line
+        end do
+
+        !----------------------------------------- Allocate and read data
+
+        max_rows_ = min(optval(max_rows, nrows_effective), nrows_effective)
+        ! If there is no data we will return an empty array
+        if ((max_rows_ <= 0) .or. (ncols == 0)) then
+            allocate (d(0, 0))
+            return
+        end if
+
+        if (present(usecols)) then ! user set columns to extract
+            usecols_ = usecols
+        else                    ! extract all columns
+            usecols_ = [(j, j=1, ncols)]
+        end if
+        allocate (d(max_rows_, size(usecols_)))
+        allocate (cols(ncols))  ! Used to hold each row
+
+        row_effective = 0
+        ffp => ff(start_effective:) ! Reset pointer to the beginning of the file after skiplines
+        nrows = nrows - skiplines_
+
+        do row = 1, nrows
+            line_end = shift_to_eol(ffp)
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Avoid initial blanks in line
+
+            if (starts_with(ffp(line_start:), comment_) .or. &
+                (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+
+            row_effective = row_effective + 1
+            do j = 1, ncols     ! Read a row
+                cols(j) = to_num_from_stream(ffp, cols(j))
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+
+                if (scan(ffp(1:1), nl) /= 0) then ! If EOL => no more cols
+                    exit
+                end if
+            end do
+            ! Copy the columns of the current row to d(row_effective,:)
+            do j = 1, size(usecols_)
+                d(row_effective, j) = cols(usecols_(j))
+            end do
+
+            if (row_effective >= max_rows_) return
+            line_end = shift_to_eol(ffp)
+            ffp => ffp(line_end + 1:)
+        end do
+
+    end subroutine loadtxt_iint16u
+    subroutine loadtxt_iint32u (unit, d, comments, delimiter, skiplines, max_rows, usecols)
+        !! version: experimental
+        !!
+        !! Loads a 2D array from a text file.
+        !!
+        !! Arguments
+        !! ---------
+        !!
+        !! unit of an open file from where to load the array
+        integer, intent(in) :: unit
+        !! The array 'd' will be automatically allocated with the correct dimensions
+        integer(int32), allocatable, intent(out) :: d(:, :) 
+        integer, intent(in), optional :: skiplines !! Skip the first `skiplines` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
+        integer, intent(in), optional :: max_rows !! Read `max_rows` lines of content after `skiplines` lines. A negative value results in reading all lines. A value of zero results in no lines to be read. The default is to read all rows.
+        character(len=*), intent(in), optional :: comments !! from comments symbol until line end everything else will be ignored. The default is '#'.
+        character(len=*), intent(in), optional :: delimiter !! Character used to separate values in a line. The default is any number of spaces and or tabs.
+        integer, intent(in), optional :: usecols(:) !! Array of column indices to read. If not provided, all columns are read.
+        !!
+        !! Example
+        !! -------
+        !!
+        !!```fortran
+        !! integer(int32), allocatable :: data(:, :)
+        !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
+        !!```
+        !!
+        !! Where 'log.txt' contains for example::
+        !!
+        !!     1 2 3
+        !!     2 4 6
+        !!     8 9 10
+        !!     11 12 13
+        !!     ...
+        !!
+        integer :: iostat
+        integer :: skiplines_, max_rows_
+        integer :: fsze, nrows, nrows_effective, ncols, j, start_effective
+        character(:), allocatable, target :: ff
+        character(len=:), pointer :: ffp
+        integer :: line_start, line_end
+        character(len=:), allocatable :: delim_
+        character(len=:), allocatable :: comment_
+        integer, allocatable ::  usecols_(:)
+        character(len=1024) :: iomsg, msgout, fout
+        character(len=16) :: readable
+        logical :: opened
+        !
+        integer :: row, row_effective, err
+        integer(int32), allocatable :: cols(:)
+
+        comment_ = optval(comments, comment_default)
+        delim_ = optval(delimiter, delimiter_default)
+        skiplines_ = optval(skiplines, 0)
+        ! max_rows will be set later, after determining number of rows
+
+        !----------------------------------------- Check file
+        ! first argument is unit
+        inquire (unit=unit, opened=opened, action=readable) 
+        if((.not. opened) .or. (readable(1:1) /= 'R')) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: unit ',unit,' not open for reading'
+            call error_stop(msg=trim(msgout))
+        end if
+        write(fout,'(i0)') unit
+        fout = adjustl(fout)  ! fout is used for unified error message later
+            
+        !----------------------------------------- Load file in a single string
+        inquire (unit=unit, size=fsze)
+        if(fsze == 0) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: file empty'
+            call error_stop(msg=trim(msgout))
+        else
+            allocate (character(fsze) :: ff)
+            read (unit, iostat=iostat, iomsg=iomsg) ff
+            if (iostat /= 0) then
+                write(msgout,'(a)') "loadtxt: error reading file "//trim(fout)//"("//trim(iomsg)//")"
+                call error_stop(msg=trim(msgout))
+            end if
+        end if
+
+        ffp => ff
+        start_effective = 1     ! Start after skiplines
+
+        !----------------------------------------- Count lines and columns
+        nrows = 0               ! Total number of rows (including empty and commented lines)
+        nrows_effective = 0     ! rows with data
+        ncols = 0
+        do while (len(ffp) > 0)
+            line_end = shift_to_eol(ffp)
+            if (line_end > len(ffp)) exit  ! No more lines
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Skip initial blanks in line
+            nrows = nrows + 1
+            if (nrows <= skiplines_) then
+                start_effective = start_effective + line_end ! Remember position to use aS starting point when reading
+                ffp => ffp(line_end + 1:) ! Skip the line
+                cycle
+            end if
+
+            if (starts_with(ffp(line_start:), comment_) .or. (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+            nrows_effective = nrows_effective + 1
+            !
+            ! if ncols is not set yet, determine the number of columns
+            if (ncols == 0) ncols = number_cols_line(ffp(line_start:line_end), delim_, comment_)
+            ffp => ffp(line_end + 1:) ! go to next line
+        end do
+
+        !----------------------------------------- Allocate and read data
+
+        max_rows_ = min(optval(max_rows, nrows_effective), nrows_effective)
+        ! If there is no data we will return an empty array
+        if ((max_rows_ <= 0) .or. (ncols == 0)) then
+            allocate (d(0, 0))
+            return
+        end if
+
+        if (present(usecols)) then ! user set columns to extract
+            usecols_ = usecols
+        else                    ! extract all columns
+            usecols_ = [(j, j=1, ncols)]
+        end if
+        allocate (d(max_rows_, size(usecols_)))
+        allocate (cols(ncols))  ! Used to hold each row
+
+        row_effective = 0
+        ffp => ff(start_effective:) ! Reset pointer to the beginning of the file after skiplines
+        nrows = nrows - skiplines_
+
+        do row = 1, nrows
+            line_end = shift_to_eol(ffp)
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Avoid initial blanks in line
+
+            if (starts_with(ffp(line_start:), comment_) .or. &
+                (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+
+            row_effective = row_effective + 1
+            do j = 1, ncols     ! Read a row
+                cols(j) = to_num_from_stream(ffp, cols(j))
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+
+                if (scan(ffp(1:1), nl) /= 0) then ! If EOL => no more cols
+                    exit
+                end if
+            end do
+            ! Copy the columns of the current row to d(row_effective,:)
+            do j = 1, size(usecols_)
+                d(row_effective, j) = cols(usecols_(j))
+            end do
+
+            if (row_effective >= max_rows_) return
+            line_end = shift_to_eol(ffp)
+            ffp => ffp(line_end + 1:)
+        end do
+
+    end subroutine loadtxt_iint32u
+    subroutine loadtxt_iint64u (unit, d, comments, delimiter, skiplines, max_rows, usecols)
+        !! version: experimental
+        !!
+        !! Loads a 2D array from a text file.
+        !!
+        !! Arguments
+        !! ---------
+        !!
+        !! unit of an open file from where to load the array
+        integer, intent(in) :: unit
+        !! The array 'd' will be automatically allocated with the correct dimensions
+        integer(int64), allocatable, intent(out) :: d(:, :) 
+        integer, intent(in), optional :: skiplines !! Skip the first `skiplines` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
+        integer, intent(in), optional :: max_rows !! Read `max_rows` lines of content after `skiplines` lines. A negative value results in reading all lines. A value of zero results in no lines to be read. The default is to read all rows.
+        character(len=*), intent(in), optional :: comments !! from comments symbol until line end everything else will be ignored. The default is '#'.
+        character(len=*), intent(in), optional :: delimiter !! Character used to separate values in a line. The default is any number of spaces and or tabs.
+        integer, intent(in), optional :: usecols(:) !! Array of column indices to read. If not provided, all columns are read.
+        !!
+        !! Example
+        !! -------
+        !!
+        !!```fortran
+        !! integer(int64), allocatable :: data(:, :)
+        !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
+        !!```
+        !!
+        !! Where 'log.txt' contains for example::
+        !!
+        !!     1 2 3
+        !!     2 4 6
+        !!     8 9 10
+        !!     11 12 13
+        !!     ...
+        !!
+        integer :: iostat
+        integer :: skiplines_, max_rows_
+        integer :: fsze, nrows, nrows_effective, ncols, j, start_effective
+        character(:), allocatable, target :: ff
+        character(len=:), pointer :: ffp
+        integer :: line_start, line_end
+        character(len=:), allocatable :: delim_
+        character(len=:), allocatable :: comment_
+        integer, allocatable ::  usecols_(:)
+        character(len=1024) :: iomsg, msgout, fout
+        character(len=16) :: readable
+        logical :: opened
+        !
+        integer :: row, row_effective, err
+        integer(int64), allocatable :: cols(:)
+
+        comment_ = optval(comments, comment_default)
+        delim_ = optval(delimiter, delimiter_default)
+        skiplines_ = optval(skiplines, 0)
+        ! max_rows will be set later, after determining number of rows
+
+        !----------------------------------------- Check file
+        ! first argument is unit
+        inquire (unit=unit, opened=opened, action=readable) 
+        if((.not. opened) .or. (readable(1:1) /= 'R')) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: unit ',unit,' not open for reading'
+            call error_stop(msg=trim(msgout))
+        end if
+        write(fout,'(i0)') unit
+        fout = adjustl(fout)  ! fout is used for unified error message later
+            
+        !----------------------------------------- Load file in a single string
+        inquire (unit=unit, size=fsze)
+        if(fsze == 0) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: file empty'
+            call error_stop(msg=trim(msgout))
+        else
+            allocate (character(fsze) :: ff)
+            read (unit, iostat=iostat, iomsg=iomsg) ff
+            if (iostat /= 0) then
+                write(msgout,'(a)') "loadtxt: error reading file "//trim(fout)//"("//trim(iomsg)//")"
+                call error_stop(msg=trim(msgout))
+            end if
+        end if
+
+        ffp => ff
+        start_effective = 1     ! Start after skiplines
+
+        !----------------------------------------- Count lines and columns
+        nrows = 0               ! Total number of rows (including empty and commented lines)
+        nrows_effective = 0     ! rows with data
+        ncols = 0
+        do while (len(ffp) > 0)
+            line_end = shift_to_eol(ffp)
+            if (line_end > len(ffp)) exit  ! No more lines
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Skip initial blanks in line
+            nrows = nrows + 1
+            if (nrows <= skiplines_) then
+                start_effective = start_effective + line_end ! Remember position to use aS starting point when reading
+                ffp => ffp(line_end + 1:) ! Skip the line
+                cycle
+            end if
+
+            if (starts_with(ffp(line_start:), comment_) .or. (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+            nrows_effective = nrows_effective + 1
+            !
+            ! if ncols is not set yet, determine the number of columns
+            if (ncols == 0) ncols = number_cols_line(ffp(line_start:line_end), delim_, comment_)
+            ffp => ffp(line_end + 1:) ! go to next line
+        end do
+
+        !----------------------------------------- Allocate and read data
+
+        max_rows_ = min(optval(max_rows, nrows_effective), nrows_effective)
+        ! If there is no data we will return an empty array
+        if ((max_rows_ <= 0) .or. (ncols == 0)) then
+            allocate (d(0, 0))
+            return
+        end if
+
+        if (present(usecols)) then ! user set columns to extract
+            usecols_ = usecols
+        else                    ! extract all columns
+            usecols_ = [(j, j=1, ncols)]
+        end if
+        allocate (d(max_rows_, size(usecols_)))
+        allocate (cols(ncols))  ! Used to hold each row
+
+        row_effective = 0
+        ffp => ff(start_effective:) ! Reset pointer to the beginning of the file after skiplines
+        nrows = nrows - skiplines_
+
+        do row = 1, nrows
+            line_end = shift_to_eol(ffp)
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Avoid initial blanks in line
+
+            if (starts_with(ffp(line_start:), comment_) .or. &
+                (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+
+            row_effective = row_effective + 1
+            do j = 1, ncols     ! Read a row
+                cols(j) = to_num_from_stream(ffp, cols(j))
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+
+                if (scan(ffp(1:1), nl) /= 0) then ! If EOL => no more cols
+                    exit
+                end if
+            end do
+            ! Copy the columns of the current row to d(row_effective,:)
+            do j = 1, size(usecols_)
+                d(row_effective, j) = cols(usecols_(j))
+            end do
+
+            if (row_effective >= max_rows_) return
+            line_end = shift_to_eol(ffp)
+            ffp => ffp(line_end + 1:)
+        end do
+
+    end subroutine loadtxt_iint64u
+    subroutine loadtxt_cspu (unit, d, comments, delimiter, skiplines, max_rows, usecols)
+        !! version: experimental
+        !!
+        !! Loads a 2D array from a text file.
+        !!
+        !! Arguments
+        !! ---------
+        !!
+        !! unit of an open file from where to load the array
+        integer, intent(in) :: unit
+        !! The array 'd' will be automatically allocated with the correct dimensions
+        complex(sp), allocatable, intent(out) :: d(:, :) 
+        integer, intent(in), optional :: skiplines !! Skip the first `skiplines` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
+        integer, intent(in), optional :: max_rows !! Read `max_rows` lines of content after `skiplines` lines. A negative value results in reading all lines. A value of zero results in no lines to be read. The default is to read all rows.
+        character(len=*), intent(in), optional :: comments !! from comments symbol until line end everything else will be ignored. The default is '#'.
+        character(len=*), intent(in), optional :: delimiter !! Character used to separate values in a line. The default is any number of spaces and or tabs.
+        integer, intent(in), optional :: usecols(:) !! Array of column indices to read. If not provided, all columns are read.
+        !!
+        !! Example
+        !! -------
+        !!
+        !!```fortran
+        !! complex(sp), allocatable :: data(:, :)
+        !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
+        !!```
+        !!
+        !! Where 'log.txt' contains for example::
+        !!
+        !!     1 2 3
+        !!     2 4 6
+        !!     8 9 10
+        !!     11 12 13
+        !!     ...
+        !!
+        integer :: iostat
+        integer :: skiplines_, max_rows_
+        integer :: fsze, nrows, nrows_effective, ncols, j, start_effective
+        character(:), allocatable, target :: ff
+        character(len=:), pointer :: ffp
+        integer :: line_start, line_end
+        character(len=:), allocatable :: delim_
+        character(len=:), allocatable :: comment_
+        integer, allocatable ::  usecols_(:)
+        character(len=1024) :: iomsg, msgout, fout
+        character(len=16) :: readable
+        logical :: opened
+        !
+        integer :: row, row_effective, err
+        complex(sp), allocatable :: cols(:)
+        real(sp) :: reval, imval
+
+        comment_ = optval(comments, comment_default)
+        delim_ = optval(delimiter, delimiter_default)
+        skiplines_ = optval(skiplines, 0)
+        ! max_rows will be set later, after determining number of rows
+
+        !----------------------------------------- Check file
+        ! first argument is unit
+        inquire (unit=unit, opened=opened, action=readable) 
+        if((.not. opened) .or. (readable(1:1) /= 'R')) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: unit ',unit,' not open for reading'
+            call error_stop(msg=trim(msgout))
+        end if
+        write(fout,'(i0)') unit
+        fout = adjustl(fout)  ! fout is used for unified error message later
+            
+        !----------------------------------------- Load file in a single string
+        inquire (unit=unit, size=fsze)
+        if(fsze == 0) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: file empty'
+            call error_stop(msg=trim(msgout))
+        else
+            allocate (character(fsze) :: ff)
+            read (unit, iostat=iostat, iomsg=iomsg) ff
+            if (iostat /= 0) then
+                write(msgout,'(a)') "loadtxt: error reading file "//trim(fout)//"("//trim(iomsg)//")"
+                call error_stop(msg=trim(msgout))
+            end if
+        end if
+
+        ffp => ff
+        start_effective = 1     ! Start after skiplines
+
+        !----------------------------------------- Count lines and columns
+        nrows = 0               ! Total number of rows (including empty and commented lines)
+        nrows_effective = 0     ! rows with data
+        ncols = 0
+        do while (len(ffp) > 0)
+            line_end = shift_to_eol(ffp)
+            if (line_end > len(ffp)) exit  ! No more lines
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Skip initial blanks in line
+            nrows = nrows + 1
+            if (nrows <= skiplines_) then
+                start_effective = start_effective + line_end ! Remember position to use aS starting point when reading
+                ffp => ffp(line_end + 1:) ! Skip the line
+                cycle
+            end if
+
+            if (starts_with(ffp(line_start:), comment_) .or. (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+            nrows_effective = nrows_effective + 1
+            !
+            ! if ncols is not set yet, determine the number of columns
+            if (ncols == 0) ncols = number_cols_line(ffp(line_start:line_end), delim_, comment_)
+            ffp => ffp(line_end + 1:) ! go to next line
+        end do
+
+        !----------------------------------------- Allocate and read data
+        ncols = ncols / 2
+
+        max_rows_ = min(optval(max_rows, nrows_effective), nrows_effective)
+        ! If there is no data we will return an empty array
+        if ((max_rows_ <= 0) .or. (ncols == 0)) then
+            allocate (d(0, 0))
+            return
+        end if
+
+        if (present(usecols)) then ! user set columns to extract
+            usecols_ = usecols
+        else                    ! extract all columns
+            usecols_ = [(j, j=1, ncols)]
+        end if
+        allocate (d(max_rows_, size(usecols_)))
+        allocate (cols(ncols))  ! Used to hold each row
+
+        row_effective = 0
+        ffp => ff(start_effective:) ! Reset pointer to the beginning of the file after skiplines
+        nrows = nrows - skiplines_
+
+        do row = 1, nrows
+            line_end = shift_to_eol(ffp)
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Avoid initial blanks in line
+
+            if (starts_with(ffp(line_start:), comment_) .or. &
+                (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+
+            row_effective = row_effective + 1
+            do j = 1, ncols     ! Read a row
+                reval = to_num_from_stream(ffp, reval)
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+                imval = to_num_from_stream(ffp, imval)
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+                cols(j) = complex(reval,imval)
+
+                if (scan(ffp(1:1), nl) /= 0) then ! If EOL => no more cols
+                    exit
+                end if
+            end do
+            ! Copy the columns of the current row to d(row_effective,:)
+            do j = 1, size(usecols_)
+                d(row_effective, j) = cols(usecols_(j))
+            end do
+
+            if (row_effective >= max_rows_) return
+            line_end = shift_to_eol(ffp)
+            ffp => ffp(line_end + 1:)
+        end do
+
+    end subroutine loadtxt_cspu
+    subroutine loadtxt_cdpu (unit, d, comments, delimiter, skiplines, max_rows, usecols)
+        !! version: experimental
+        !!
+        !! Loads a 2D array from a text file.
+        !!
+        !! Arguments
+        !! ---------
+        !!
+        !! unit of an open file from where to load the array
+        integer, intent(in) :: unit
+        !! The array 'd' will be automatically allocated with the correct dimensions
+        complex(dp), allocatable, intent(out) :: d(:, :) 
+        integer, intent(in), optional :: skiplines !! Skip the first `skiplines` lines. If skipping more rows than present, a 0-sized array will be returned. The default is 0.
+        integer, intent(in), optional :: max_rows !! Read `max_rows` lines of content after `skiplines` lines. A negative value results in reading all lines. A value of zero results in no lines to be read. The default is to read all rows.
+        character(len=*), intent(in), optional :: comments !! from comments symbol until line end everything else will be ignored. The default is '#'.
+        character(len=*), intent(in), optional :: delimiter !! Character used to separate values in a line. The default is any number of spaces and or tabs.
+        integer, intent(in), optional :: usecols(:) !! Array of column indices to read. If not provided, all columns are read.
+        !!
+        !! Example
+        !! -------
+        !!
+        !!```fortran
+        !! complex(dp), allocatable :: data(:, :)
+        !! call loadtxt("log.txt", data)  ! 'data' will be automatically allocated
+        !!```
+        !!
+        !! Where 'log.txt' contains for example::
+        !!
+        !!     1 2 3
+        !!     2 4 6
+        !!     8 9 10
+        !!     11 12 13
+        !!     ...
+        !!
+        integer :: iostat
+        integer :: skiplines_, max_rows_
+        integer :: fsze, nrows, nrows_effective, ncols, j, start_effective
+        character(:), allocatable, target :: ff
+        character(len=:), pointer :: ffp
+        integer :: line_start, line_end
+        character(len=:), allocatable :: delim_
+        character(len=:), allocatable :: comment_
+        integer, allocatable ::  usecols_(:)
+        character(len=1024) :: iomsg, msgout, fout
+        character(len=16) :: readable
+        logical :: opened
+        !
+        integer :: row, row_effective, err
+        complex(dp), allocatable :: cols(:)
+        real(dp) :: reval, imval
+
+        comment_ = optval(comments, comment_default)
+        delim_ = optval(delimiter, delimiter_default)
+        skiplines_ = optval(skiplines, 0)
+        ! max_rows will be set later, after determining number of rows
+
+        !----------------------------------------- Check file
+        ! first argument is unit
+        inquire (unit=unit, opened=opened, action=readable) 
+        if((.not. opened) .or. (readable(1:1) /= 'R')) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: unit ',unit,' not open for reading'
+            call error_stop(msg=trim(msgout))
+        end if
+        write(fout,'(i0)') unit
+        fout = adjustl(fout)  ! fout is used for unified error message later
+            
+        !----------------------------------------- Load file in a single string
+        inquire (unit=unit, size=fsze)
+        if(fsze == 0) then
+            write (msgout,'(a,i0,a)') 'loadtxt error: file empty'
+            call error_stop(msg=trim(msgout))
+        else
+            allocate (character(fsze) :: ff)
+            read (unit, iostat=iostat, iomsg=iomsg) ff
+            if (iostat /= 0) then
+                write(msgout,'(a)') "loadtxt: error reading file "//trim(fout)//"("//trim(iomsg)//")"
+                call error_stop(msg=trim(msgout))
+            end if
+        end if
+
+        ffp => ff
+        start_effective = 1     ! Start after skiplines
+
+        !----------------------------------------- Count lines and columns
+        nrows = 0               ! Total number of rows (including empty and commented lines)
+        nrows_effective = 0     ! rows with data
+        ncols = 0
+        do while (len(ffp) > 0)
+            line_end = shift_to_eol(ffp)
+            if (line_end > len(ffp)) exit  ! No more lines
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Skip initial blanks in line
+            nrows = nrows + 1
+            if (nrows <= skiplines_) then
+                start_effective = start_effective + line_end ! Remember position to use aS starting point when reading
+                ffp => ffp(line_end + 1:) ! Skip the line
+                cycle
+            end if
+
+            if (starts_with(ffp(line_start:), comment_) .or. (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+            nrows_effective = nrows_effective + 1
+            !
+            ! if ncols is not set yet, determine the number of columns
+            if (ncols == 0) ncols = number_cols_line(ffp(line_start:line_end), delim_, comment_)
+            ffp => ffp(line_end + 1:) ! go to next line
+        end do
+
+        !----------------------------------------- Allocate and read data
+        ncols = ncols / 2
+
+        max_rows_ = min(optval(max_rows, nrows_effective), nrows_effective)
+        ! If there is no data we will return an empty array
+        if ((max_rows_ <= 0) .or. (ncols == 0)) then
+            allocate (d(0, 0))
+            return
+        end if
+
+        if (present(usecols)) then ! user set columns to extract
+            usecols_ = usecols
+        else                    ! extract all columns
+            usecols_ = [(j, j=1, ncols)]
+        end if
+        allocate (d(max_rows_, size(usecols_)))
+        allocate (cols(ncols))  ! Used to hold each row
+
+        row_effective = 0
+        ffp => ff(start_effective:) ! Reset pointer to the beginning of the file after skiplines
+        nrows = nrows - skiplines_
+
+        do row = 1, nrows
+            line_end = shift_to_eol(ffp)
+            line_start = shift_to_nonwhitespace(ffp(:line_end)) ! Avoid initial blanks in line
+
+            if (starts_with(ffp(line_start:), comment_) .or. &
+                (line_start == line_end)) then
+                ffp => ffp(line_end + 1:) ! Skip comment lines and blank lines
+                cycle
+            end if
+
+            row_effective = row_effective + 1
+            do j = 1, ncols     ! Read a row
+                reval = to_num_from_stream(ffp, reval)
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+                imval = to_num_from_stream(ffp, imval)
+                if (in_delim(ffp, delim_)) then
+                    ffp => ffp(shift_to_nondelim(ffp, delim_):)
+                end if
+                cols(j) = complex(reval,imval)
+
+                if (scan(ffp(1:1), nl) /= 0) then ! If EOL => no more cols
+                    exit
+                end if
+            end do
+            ! Copy the columns of the current row to d(row_effective,:)
+            do j = 1, size(usecols_)
+                d(row_effective, j) = cols(usecols_(j))
+            end do
+
+            if (row_effective >= max_rows_) return
+            line_end = shift_to_eol(ffp)
+            ffp => ffp(line_end + 1:)
+        end do
+
+    end subroutine loadtxt_cdpu
+
+    function number_cols_line(row, delimiter, comment) result(ncols)
+        implicit none
+        character(len=*), intent(in) :: row !<
+        character(len=*), intent(in) :: delimiter !<
+        character(len=*), intent(in) :: comment !<
+        character(len=:), allocatable :: line
+        integer :: ncols
+        integer :: pos, p
+        ncols = 0
+        pos = index(row, comment)
+        if (pos == 0) pos = len(row)
+        line = trim(adjustl(row(:pos))) ! Line with no blanks around and no comments
+        pos = 1
+        do
+            p = shift_after_next_delim(line(pos:), delimiter)
+            pos = pos + p - 1 ! Find delimiter
+            if (pos >= len(line)) exit
+            ncols = ncols + 1
+        end do
+        ncols = ncols + 1
+    end function number_cols_line
+
+    elemental function in_delim(s, delim) result(m)
+        !! Check if current position is the init of a delimiter
+        character(len=*), intent(in) :: s !! character chain
+        character(len=*), intent(in) :: delim !! character chain
+        logical :: m !! True or False
+        !----------------------------------------------
+        if (delim == delimiter_default) then
+            m = (scan(s(1:1), blanks) /= 0)
+        else
+            m = starts_with(s(shift_to_nonwhitespace(s):), delim)
+        end if
+    end function in_delim
+
+    elemental function shift_to_eol(s) result(p)
+        !! move string to position of the next end-of-line character
+        character(len=*), intent(in) :: s !! character chain
+        integer :: p !! position
+        !----------------------------------------------
+        p = scan(s, nl)
+        if (p < len(s)) then ! If CRLF, move to LF
+            if (s(p:p + 1) == nl) p = p + 1
+        end if
+
+    end function shift_to_eol
+
+    function shift_after_next_delim(s, delim) result(p)
+      !! move string to position of the next non delimiter character
+        character(len=*), intent(in) :: s !! character chain
+        character(len=*), intent(in) :: delim !! character chain
+        integer :: p !! position
+        !----------------------------------------------
+        if (delim == delimiter_default) then
+            p = 1
+            if (.not. is_blank(s(p:p))) p = shift_to_whitespace(s)
+            p = p + shift_to_nonwhitespace(s(p:)) - 1
+        else
+            p = index(s, delim)
+            if (p == 0) then
+                p = len(s)
+            else
+                p = p + len(delim)
+            end if
+        end if
+        if (p > len(s)) p = len(s)
+    end function shift_after_next_delim
+
+    elemental function shift_to_nondelim(s, delim) result(p)
+      !! move string to position of the next non delimiter character
+      !! Assumes that it is in a delim
+        character(len=*), intent(in) :: s !! character chain
+        character(len=*), intent(in) :: delim !! character chain
+        integer :: p !! position
+        !----------------------------------------------
+        if (delim == delimiter_default) then
+            p = shift_to_nonwhitespace(s)
+        else
+            ! Check first if we are at the beginning of a delimiter
+            p = index(s, delim)
+            if (p == 0) then
+                p = len(s)
+            else
+                p = p + len(delim)
+                p = p + shift_to_nonwhitespace(s(p:)) - 1 ! Extra-spaces make to_num_from_stream fail
+                if (p > len(s)) p = len(s)
+            end if
+        end if
+
+    end function shift_to_nondelim
+
+    elemental function shift_to_nonwhitespace(s) result(p)
+    !! move string to position of the next non white space character
+        character(len=*), intent(in) :: s !! character chain
+        integer :: p !! position
+        !----------------------------------------------
+        ! p = verify(s, blanks//nl)
+        p = verify(s, blanks)
+        if (p == 0) p = len(s)
+    end function shift_to_nonwhitespace
+
+    elemental function shift_to_whitespace(s) result(p)
+    !! move string to position of the next white space character
+        character(len=*), intent(in) :: s !! character chain
+        integer :: p !! position
+        !----------------------------------------------
+        p = scan(s, blanks)
+        if (p == 0) p = len(s)
+    end function shift_to_whitespace
+
+    subroutine savetxt_rsp(filename, d, delimiter)
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -1194,11 +2830,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       real(sp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
-      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
-      character(len=*), intent(in), optional :: header  !< If present, text to write before data.
-      character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       !!
       !! Example
       !! -------
@@ -1208,93 +2840,33 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: i, ios
-      character(len=:), allocatable :: delimiter_
-      character(len=:), allocatable :: delim_str
-      character(len=:), allocatable :: default_fmt
+      integer :: s, i, ios
+      character(len=1) :: delimiter_
+      character(len=3) :: delim_str
       character(len=:), allocatable :: fmt_
-      character(len=:), allocatable :: comments_
-      character(len=:), allocatable :: header_
-      character(len=:), allocatable :: footer_
-      !
-      integer :: unit
-      logical :: opened
-      character(len=7) :: writable
-      character(len=1024) :: iomsg, msgout, fout
+      character(len=1024) :: iomsg, msgout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
-      comments_ = optval(comments, comment_default)
-      header_ = optval(trim(header), '')
-      footer_ = optval(trim(footer), '')
+        fmt_ = "(*"//FMT_REAL_sp(1:len(FMT_REAL_sp)-1)//",:,"//delim_str//"))"
 
-      if(index(delimiter_, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
-          call error_stop(msg=trim(msgout))
-      end if
-
-      if(scan(whitespace, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-
-        default_fmt = FMT_REAL_sp(2:len(FMT_REAL_sp)-1)
-      fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
-
-      ! !!! Check first argument (filename or unit) !!!!!!!!
-      ! Check if it is open
-      inquire (file=filename, opened=opened)
-      if(.not. opened) then
-          unit = open (filename, "w")
-      else                      ! Check that it is writable
-          inquire(file=filename, number=unit, write=writable)
-          if ((unit == -1) .or. (writable(1:1) /= 'Y')) then
-              write (msgout,'(a)') 'savetxt error: file '//filename//' not open for writing'
-              call error_stop(msg=trim(msgout))
-          end if
-      end if
-      fout = filename           ! fout is used for unified error message later
-      ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      ! Write the header if non-empty
-      if (header_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-        
+      s = open(filename, "w")
       do i = 1, size(d, 1)
-          write(unit, fmt_, &
+          write(s, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
-            call error_stop(msg=trim(msgout))
+           write(msgout,1) trim(iomsg),size(d,2),i,trim(filename) 
+           call error_stop(msg=trim(msgout))
         end if           
+        
       end do
-
-      if (footer_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-
-      if (.not. opened)  close(unit) ! Only close if opened in the routine
-
+      close(s)
+      
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
-    end subroutine savetxt_rspf
-    subroutine savetxt_rdpf (filename, d, delimiter, fmt, header, footer, comments)
+    end subroutine savetxt_rsp
+    subroutine savetxt_rdp(filename, d, delimiter)
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -1304,11 +2876,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       real(dp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
-      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
-      character(len=*), intent(in), optional :: header  !< If present, text to write before data.
-      character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       !!
       !! Example
       !! -------
@@ -1318,93 +2886,33 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: i, ios
-      character(len=:), allocatable :: delimiter_
-      character(len=:), allocatable :: delim_str
-      character(len=:), allocatable :: default_fmt
+      integer :: s, i, ios
+      character(len=1) :: delimiter_
+      character(len=3) :: delim_str
       character(len=:), allocatable :: fmt_
-      character(len=:), allocatable :: comments_
-      character(len=:), allocatable :: header_
-      character(len=:), allocatable :: footer_
-      !
-      integer :: unit
-      logical :: opened
-      character(len=7) :: writable
-      character(len=1024) :: iomsg, msgout, fout
+      character(len=1024) :: iomsg, msgout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
-      comments_ = optval(comments, comment_default)
-      header_ = optval(trim(header), '')
-      footer_ = optval(trim(footer), '')
+        fmt_ = "(*"//FMT_REAL_dp(1:len(FMT_REAL_dp)-1)//",:,"//delim_str//"))"
 
-      if(index(delimiter_, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
-          call error_stop(msg=trim(msgout))
-      end if
-
-      if(scan(whitespace, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-
-        default_fmt = FMT_REAL_dp(2:len(FMT_REAL_dp)-1)
-      fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
-
-      ! !!! Check first argument (filename or unit) !!!!!!!!
-      ! Check if it is open
-      inquire (file=filename, opened=opened)
-      if(.not. opened) then
-          unit = open (filename, "w")
-      else                      ! Check that it is writable
-          inquire(file=filename, number=unit, write=writable)
-          if ((unit == -1) .or. (writable(1:1) /= 'Y')) then
-              write (msgout,'(a)') 'savetxt error: file '//filename//' not open for writing'
-              call error_stop(msg=trim(msgout))
-          end if
-      end if
-      fout = filename           ! fout is used for unified error message later
-      ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      ! Write the header if non-empty
-      if (header_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-        
+      s = open(filename, "w")
       do i = 1, size(d, 1)
-          write(unit, fmt_, &
+          write(s, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
-            call error_stop(msg=trim(msgout))
+           write(msgout,1) trim(iomsg),size(d,2),i,trim(filename) 
+           call error_stop(msg=trim(msgout))
         end if           
+        
       end do
-
-      if (footer_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-
-      if (.not. opened)  close(unit) ! Only close if opened in the routine
-
+      close(s)
+      
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
-    end subroutine savetxt_rdpf
-    subroutine savetxt_iint8f (filename, d, delimiter, fmt, header, footer, comments)
+    end subroutine savetxt_rdp
+    subroutine savetxt_iint8(filename, d, delimiter)
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -1414,11 +2922,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       integer(int8), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
-      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
-      character(len=*), intent(in), optional :: header  !< If present, text to write before data.
-      character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       !!
       !! Example
       !! -------
@@ -1428,93 +2932,33 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: i, ios
-      character(len=:), allocatable :: delimiter_
-      character(len=:), allocatable :: delim_str
-      character(len=:), allocatable :: default_fmt
+      integer :: s, i, ios
+      character(len=1) :: delimiter_
+      character(len=3) :: delim_str
       character(len=:), allocatable :: fmt_
-      character(len=:), allocatable :: comments_
-      character(len=:), allocatable :: header_
-      character(len=:), allocatable :: footer_
-      !
-      integer :: unit
-      logical :: opened
-      character(len=7) :: writable
-      character(len=1024) :: iomsg, msgout, fout
+      character(len=1024) :: iomsg, msgout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
-      comments_ = optval(comments, comment_default)
-      header_ = optval(trim(header), '')
-      footer_ = optval(trim(footer), '')
+        fmt_ = "(*"//FMT_INT(1:len(FMT_INT)-1)//",:,"//delim_str//"))"
 
-      if(index(delimiter_, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
-          call error_stop(msg=trim(msgout))
-      end if
-
-      if(scan(whitespace, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-
-        default_fmt = FMT_INT(2:len(FMT_INT)-1)
-      fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
-
-      ! !!! Check first argument (filename or unit) !!!!!!!!
-      ! Check if it is open
-      inquire (file=filename, opened=opened)
-      if(.not. opened) then
-          unit = open (filename, "w")
-      else                      ! Check that it is writable
-          inquire(file=filename, number=unit, write=writable)
-          if ((unit == -1) .or. (writable(1:1) /= 'Y')) then
-              write (msgout,'(a)') 'savetxt error: file '//filename//' not open for writing'
-              call error_stop(msg=trim(msgout))
-          end if
-      end if
-      fout = filename           ! fout is used for unified error message later
-      ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      ! Write the header if non-empty
-      if (header_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-        
+      s = open(filename, "w")
       do i = 1, size(d, 1)
-          write(unit, fmt_, &
+          write(s, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
-            call error_stop(msg=trim(msgout))
+           write(msgout,1) trim(iomsg),size(d,2),i,trim(filename) 
+           call error_stop(msg=trim(msgout))
         end if           
+        
       end do
-
-      if (footer_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-
-      if (.not. opened)  close(unit) ! Only close if opened in the routine
-
+      close(s)
+      
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
-    end subroutine savetxt_iint8f
-    subroutine savetxt_iint16f (filename, d, delimiter, fmt, header, footer, comments)
+    end subroutine savetxt_iint8
+    subroutine savetxt_iint16(filename, d, delimiter)
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -1524,11 +2968,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       integer(int16), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
-      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
-      character(len=*), intent(in), optional :: header  !< If present, text to write before data.
-      character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       !!
       !! Example
       !! -------
@@ -1538,93 +2978,33 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: i, ios
-      character(len=:), allocatable :: delimiter_
-      character(len=:), allocatable :: delim_str
-      character(len=:), allocatable :: default_fmt
+      integer :: s, i, ios
+      character(len=1) :: delimiter_
+      character(len=3) :: delim_str
       character(len=:), allocatable :: fmt_
-      character(len=:), allocatable :: comments_
-      character(len=:), allocatable :: header_
-      character(len=:), allocatable :: footer_
-      !
-      integer :: unit
-      logical :: opened
-      character(len=7) :: writable
-      character(len=1024) :: iomsg, msgout, fout
+      character(len=1024) :: iomsg, msgout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
-      comments_ = optval(comments, comment_default)
-      header_ = optval(trim(header), '')
-      footer_ = optval(trim(footer), '')
+        fmt_ = "(*"//FMT_INT(1:len(FMT_INT)-1)//",:,"//delim_str//"))"
 
-      if(index(delimiter_, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
-          call error_stop(msg=trim(msgout))
-      end if
-
-      if(scan(whitespace, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-
-        default_fmt = FMT_INT(2:len(FMT_INT)-1)
-      fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
-
-      ! !!! Check first argument (filename or unit) !!!!!!!!
-      ! Check if it is open
-      inquire (file=filename, opened=opened)
-      if(.not. opened) then
-          unit = open (filename, "w")
-      else                      ! Check that it is writable
-          inquire(file=filename, number=unit, write=writable)
-          if ((unit == -1) .or. (writable(1:1) /= 'Y')) then
-              write (msgout,'(a)') 'savetxt error: file '//filename//' not open for writing'
-              call error_stop(msg=trim(msgout))
-          end if
-      end if
-      fout = filename           ! fout is used for unified error message later
-      ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      ! Write the header if non-empty
-      if (header_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-        
+      s = open(filename, "w")
       do i = 1, size(d, 1)
-          write(unit, fmt_, &
+          write(s, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
-            call error_stop(msg=trim(msgout))
+           write(msgout,1) trim(iomsg),size(d,2),i,trim(filename) 
+           call error_stop(msg=trim(msgout))
         end if           
+        
       end do
-
-      if (footer_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-
-      if (.not. opened)  close(unit) ! Only close if opened in the routine
-
+      close(s)
+      
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
-    end subroutine savetxt_iint16f
-    subroutine savetxt_iint32f (filename, d, delimiter, fmt, header, footer, comments)
+    end subroutine savetxt_iint16
+    subroutine savetxt_iint32(filename, d, delimiter)
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -1634,11 +3014,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       integer(int32), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
-      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
-      character(len=*), intent(in), optional :: header  !< If present, text to write before data.
-      character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       !!
       !! Example
       !! -------
@@ -1648,93 +3024,33 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: i, ios
-      character(len=:), allocatable :: delimiter_
-      character(len=:), allocatable :: delim_str
-      character(len=:), allocatable :: default_fmt
+      integer :: s, i, ios
+      character(len=1) :: delimiter_
+      character(len=3) :: delim_str
       character(len=:), allocatable :: fmt_
-      character(len=:), allocatable :: comments_
-      character(len=:), allocatable :: header_
-      character(len=:), allocatable :: footer_
-      !
-      integer :: unit
-      logical :: opened
-      character(len=7) :: writable
-      character(len=1024) :: iomsg, msgout, fout
+      character(len=1024) :: iomsg, msgout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
-      comments_ = optval(comments, comment_default)
-      header_ = optval(trim(header), '')
-      footer_ = optval(trim(footer), '')
+        fmt_ = "(*"//FMT_INT(1:len(FMT_INT)-1)//",:,"//delim_str//"))"
 
-      if(index(delimiter_, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
-          call error_stop(msg=trim(msgout))
-      end if
-
-      if(scan(whitespace, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-
-        default_fmt = FMT_INT(2:len(FMT_INT)-1)
-      fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
-
-      ! !!! Check first argument (filename or unit) !!!!!!!!
-      ! Check if it is open
-      inquire (file=filename, opened=opened)
-      if(.not. opened) then
-          unit = open (filename, "w")
-      else                      ! Check that it is writable
-          inquire(file=filename, number=unit, write=writable)
-          if ((unit == -1) .or. (writable(1:1) /= 'Y')) then
-              write (msgout,'(a)') 'savetxt error: file '//filename//' not open for writing'
-              call error_stop(msg=trim(msgout))
-          end if
-      end if
-      fout = filename           ! fout is used for unified error message later
-      ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      ! Write the header if non-empty
-      if (header_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-        
+      s = open(filename, "w")
       do i = 1, size(d, 1)
-          write(unit, fmt_, &
+          write(s, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
-            call error_stop(msg=trim(msgout))
+           write(msgout,1) trim(iomsg),size(d,2),i,trim(filename) 
+           call error_stop(msg=trim(msgout))
         end if           
+        
       end do
-
-      if (footer_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-
-      if (.not. opened)  close(unit) ! Only close if opened in the routine
-
+      close(s)
+      
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
-    end subroutine savetxt_iint32f
-    subroutine savetxt_iint64f (filename, d, delimiter, fmt, header, footer, comments)
+    end subroutine savetxt_iint32
+    subroutine savetxt_iint64(filename, d, delimiter)
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -1744,11 +3060,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       integer(int64), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
-      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
-      character(len=*), intent(in), optional :: header  !< If present, text to write before data.
-      character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       !!
       !! Example
       !! -------
@@ -1758,93 +3070,33 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: i, ios
-      character(len=:), allocatable :: delimiter_
-      character(len=:), allocatable :: delim_str
-      character(len=:), allocatable :: default_fmt
+      integer :: s, i, ios
+      character(len=1) :: delimiter_
+      character(len=3) :: delim_str
       character(len=:), allocatable :: fmt_
-      character(len=:), allocatable :: comments_
-      character(len=:), allocatable :: header_
-      character(len=:), allocatable :: footer_
-      !
-      integer :: unit
-      logical :: opened
-      character(len=7) :: writable
-      character(len=1024) :: iomsg, msgout, fout
+      character(len=1024) :: iomsg, msgout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
-      comments_ = optval(comments, comment_default)
-      header_ = optval(trim(header), '')
-      footer_ = optval(trim(footer), '')
+        fmt_ = "(*"//FMT_INT(1:len(FMT_INT)-1)//",:,"//delim_str//"))"
 
-      if(index(delimiter_, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
-          call error_stop(msg=trim(msgout))
-      end if
-
-      if(scan(whitespace, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-
-        default_fmt = FMT_INT(2:len(FMT_INT)-1)
-      fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
-
-      ! !!! Check first argument (filename or unit) !!!!!!!!
-      ! Check if it is open
-      inquire (file=filename, opened=opened)
-      if(.not. opened) then
-          unit = open (filename, "w")
-      else                      ! Check that it is writable
-          inquire(file=filename, number=unit, write=writable)
-          if ((unit == -1) .or. (writable(1:1) /= 'Y')) then
-              write (msgout,'(a)') 'savetxt error: file '//filename//' not open for writing'
-              call error_stop(msg=trim(msgout))
-          end if
-      end if
-      fout = filename           ! fout is used for unified error message later
-      ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      ! Write the header if non-empty
-      if (header_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-        
+      s = open(filename, "w")
       do i = 1, size(d, 1)
-          write(unit, fmt_, &
+          write(s, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
-            call error_stop(msg=trim(msgout))
+           write(msgout,1) trim(iomsg),size(d,2),i,trim(filename) 
+           call error_stop(msg=trim(msgout))
         end if           
+        
       end do
-
-      if (footer_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-
-      if (.not. opened)  close(unit) ! Only close if opened in the routine
-
+      close(s)
+      
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
-    end subroutine savetxt_iint64f
-    subroutine savetxt_cspf (filename, d, delimiter, fmt, header, footer, comments)
+    end subroutine savetxt_iint64
+    subroutine savetxt_csp(filename, d, delimiter)
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -1854,11 +3106,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       complex(sp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
-      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
-      character(len=*), intent(in), optional :: header  !< If present, text to write before data.
-      character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       !!
       !! Example
       !! -------
@@ -1868,93 +3116,33 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: i, ios
-      character(len=:), allocatable :: delimiter_
-      character(len=:), allocatable :: delim_str
-      character(len=:), allocatable :: default_fmt
+      integer :: s, i, ios
+      character(len=1) :: delimiter_
+      character(len=3) :: delim_str
       character(len=:), allocatable :: fmt_
-      character(len=:), allocatable :: comments_
-      character(len=:), allocatable :: header_
-      character(len=:), allocatable :: footer_
-      !
-      integer :: unit
-      logical :: opened
-      character(len=7) :: writable
-      character(len=1024) :: iomsg, msgout, fout
+      character(len=1024) :: iomsg, msgout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
-      comments_ = optval(comments, comment_default)
-      header_ = optval(trim(header), '')
-      footer_ = optval(trim(footer), '')
+        fmt_ = "(*"//FMT_COMPLEX_sp(1:11)//delim_str//FMT_COMPLEX_sp(14:23)//",:,"//delim_str//"))"
 
-      if(index(delimiter_, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
-          call error_stop(msg=trim(msgout))
-      end if
-
-      if(scan(whitespace, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-
-        default_fmt = FMT_COMPLEX_sp(2:11)//delim_str//FMT_COMPLEX_sp(14:23)
-      fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
-
-      ! !!! Check first argument (filename or unit) !!!!!!!!
-      ! Check if it is open
-      inquire (file=filename, opened=opened)
-      if(.not. opened) then
-          unit = open (filename, "w")
-      else                      ! Check that it is writable
-          inquire(file=filename, number=unit, write=writable)
-          if ((unit == -1) .or. (writable(1:1) /= 'Y')) then
-              write (msgout,'(a)') 'savetxt error: file '//filename//' not open for writing'
-              call error_stop(msg=trim(msgout))
-          end if
-      end if
-      fout = filename           ! fout is used for unified error message later
-      ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      ! Write the header if non-empty
-      if (header_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-        
+      s = open(filename, "w")
       do i = 1, size(d, 1)
-          write(unit, fmt_, &
+          write(s, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
-            call error_stop(msg=trim(msgout))
+           write(msgout,1) trim(iomsg),size(d,2),i,trim(filename) 
+           call error_stop(msg=trim(msgout))
         end if           
+        
       end do
-
-      if (footer_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-
-      if (.not. opened)  close(unit) ! Only close if opened in the routine
-
+      close(s)
+      
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
-    end subroutine savetxt_cspf
-    subroutine savetxt_cdpf (filename, d, delimiter, fmt, header, footer, comments)
+    end subroutine savetxt_csp
+    subroutine savetxt_cdp(filename, d, delimiter)
       !! version: experimental
       !!
       !! Saves a 2D array into a text file.
@@ -1964,11 +3152,7 @@ contains
       !!
       character(len=*), intent(in) :: filename  ! File to save the array to
       complex(dp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
-      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
-      character(len=*), intent(in), optional :: header  !< If present, text to write before data.
-      character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
+      character(len=1), intent(in), optional :: delimiter  ! Column delimiter. Default is a space.
       !!
       !! Example
       !! -------
@@ -1978,1010 +3162,33 @@ contains
       !! call savetxt("log.txt", data)
       !!```
       !!
-      integer :: i, ios
-      character(len=:), allocatable :: delimiter_
-      character(len=:), allocatable :: delim_str
-      character(len=:), allocatable :: default_fmt
+      integer :: s, i, ios
+      character(len=1) :: delimiter_
+      character(len=3) :: delim_str
       character(len=:), allocatable :: fmt_
-      character(len=:), allocatable :: comments_
-      character(len=:), allocatable :: header_
-      character(len=:), allocatable :: footer_
-      !
-      integer :: unit
-      logical :: opened
-      character(len=7) :: writable
-      character(len=1024) :: iomsg, msgout, fout
+      character(len=1024) :: iomsg, msgout
 
       delimiter_ = optval(delimiter, delimiter_default)
       delim_str = "'"//delimiter_//"'"
-      comments_ = optval(comments, comment_default)
-      header_ = optval(trim(header), '')
-      footer_ = optval(trim(footer), '')
+        fmt_ = "(*"//FMT_COMPLEX_dp(1:11)//delim_str//FMT_COMPLEX_dp(14:23)//",:,"//delim_str//"))"
 
-      if(index(delimiter_, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
-          call error_stop(msg=trim(msgout))
-      end if
-
-      if(scan(whitespace, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-
-        default_fmt = FMT_COMPLEX_dp(2:11)//delim_str//FMT_COMPLEX_dp(14:23)
-      fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
-
-      ! !!! Check first argument (filename or unit) !!!!!!!!
-      ! Check if it is open
-      inquire (file=filename, opened=opened)
-      if(.not. opened) then
-          unit = open (filename, "w")
-      else                      ! Check that it is writable
-          inquire(file=filename, number=unit, write=writable)
-          if ((unit == -1) .or. (writable(1:1) /= 'Y')) then
-              write (msgout,'(a)') 'savetxt error: file '//filename//' not open for writing'
-              call error_stop(msg=trim(msgout))
-          end if
-      end if
-      fout = filename           ! fout is used for unified error message later
-      ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      ! Write the header if non-empty
-      if (header_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-        
+      s = open(filename, "w")
       do i = 1, size(d, 1)
-          write(unit, fmt_, &
+          write(s, fmt_, &
                 iostat=ios,iomsg=iomsg) d(i, :)
         
         if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
-            call error_stop(msg=trim(msgout))
+           write(msgout,1) trim(iomsg),size(d,2),i,trim(filename) 
+           call error_stop(msg=trim(msgout))
         end if           
+        
       end do
-
-      if (footer_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-
-      if (.not. opened)  close(unit) ! Only close if opened in the routine
-
+      close(s)
+      
       1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
       
-    end subroutine savetxt_cdpf
-    subroutine savetxt_rspu (unit, d, delimiter, fmt, header, footer, comments)
-      !! version: experimental
-      !!
-      !! Saves a 2D array into a text file.
-      !!
-      !! Arguments
-      !! ---------
-      !!
-      integer, intent(in) :: unit
-      real(sp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
-      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
-      character(len=*), intent(in), optional :: header  !< If present, text to write before data.
-      character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
-      !!
-      !! Example
-      !! -------
-      !!
-      !!```fortran
-      !! real(sp) :: data(3, 2)
-      !! call savetxt("log.txt", data)
-      !!```
-      !!
-      integer :: i, ios
-      character(len=:), allocatable :: delimiter_
-      character(len=:), allocatable :: delim_str
-      character(len=:), allocatable :: default_fmt
-      character(len=:), allocatable :: fmt_
-      character(len=:), allocatable :: comments_
-      character(len=:), allocatable :: header_
-      character(len=:), allocatable :: footer_
-      !
-      logical :: opened
-      character(len=7) :: writable
-      character(len=1024) :: iomsg, msgout, fout
+    end subroutine savetxt_cdp
 
-      delimiter_ = optval(delimiter, delimiter_default)
-      delim_str = "'"//delimiter_//"'"
-      comments_ = optval(comments, comment_default)
-      header_ = optval(trim(header), '')
-      footer_ = optval(trim(footer), '')
-
-      if(index(delimiter_, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
-          call error_stop(msg=trim(msgout))
-      end if
-
-      if(scan(whitespace, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-
-        default_fmt = FMT_REAL_sp(2:len(FMT_REAL_sp)-1)
-      fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
-
-      ! !!! Check first argument (filename or unit) !!!!!!!!
-      inquire (unit=unit, opened=opened, write=writable) ! Check that was opened and is writable
-      if((.not. opened) .or. (writable(1:1) /= 'Y')) then
-          write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open for writing'
-          call error_stop(msg=trim(msgout))
-      end if
-      write(fout,'(i0)') unit
-      fout = adjustl(fout)  ! fout is used only for unified error message later
-      ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      ! Write the header if non-empty
-      if (header_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-        
-      do i = 1, size(d, 1)
-          write(unit, fmt_, &
-                iostat=ios,iomsg=iomsg) d(i, :)
-        
-        if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
-            call error_stop(msg=trim(msgout))
-        end if           
-      end do
-
-      if (footer_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-
-
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
-      
-    end subroutine savetxt_rspu
-    subroutine savetxt_rdpu (unit, d, delimiter, fmt, header, footer, comments)
-      !! version: experimental
-      !!
-      !! Saves a 2D array into a text file.
-      !!
-      !! Arguments
-      !! ---------
-      !!
-      integer, intent(in) :: unit
-      real(dp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
-      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
-      character(len=*), intent(in), optional :: header  !< If present, text to write before data.
-      character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
-      !!
-      !! Example
-      !! -------
-      !!
-      !!```fortran
-      !! real(dp) :: data(3, 2)
-      !! call savetxt("log.txt", data)
-      !!```
-      !!
-      integer :: i, ios
-      character(len=:), allocatable :: delimiter_
-      character(len=:), allocatable :: delim_str
-      character(len=:), allocatable :: default_fmt
-      character(len=:), allocatable :: fmt_
-      character(len=:), allocatable :: comments_
-      character(len=:), allocatable :: header_
-      character(len=:), allocatable :: footer_
-      !
-      logical :: opened
-      character(len=7) :: writable
-      character(len=1024) :: iomsg, msgout, fout
-
-      delimiter_ = optval(delimiter, delimiter_default)
-      delim_str = "'"//delimiter_//"'"
-      comments_ = optval(comments, comment_default)
-      header_ = optval(trim(header), '')
-      footer_ = optval(trim(footer), '')
-
-      if(index(delimiter_, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
-          call error_stop(msg=trim(msgout))
-      end if
-
-      if(scan(whitespace, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-
-        default_fmt = FMT_REAL_dp(2:len(FMT_REAL_dp)-1)
-      fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
-
-      ! !!! Check first argument (filename or unit) !!!!!!!!
-      inquire (unit=unit, opened=opened, write=writable) ! Check that was opened and is writable
-      if((.not. opened) .or. (writable(1:1) /= 'Y')) then
-          write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open for writing'
-          call error_stop(msg=trim(msgout))
-      end if
-      write(fout,'(i0)') unit
-      fout = adjustl(fout)  ! fout is used only for unified error message later
-      ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      ! Write the header if non-empty
-      if (header_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-        
-      do i = 1, size(d, 1)
-          write(unit, fmt_, &
-                iostat=ios,iomsg=iomsg) d(i, :)
-        
-        if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
-            call error_stop(msg=trim(msgout))
-        end if           
-      end do
-
-      if (footer_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-
-
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
-      
-    end subroutine savetxt_rdpu
-    subroutine savetxt_iint8u (unit, d, delimiter, fmt, header, footer, comments)
-      !! version: experimental
-      !!
-      !! Saves a 2D array into a text file.
-      !!
-      !! Arguments
-      !! ---------
-      !!
-      integer, intent(in) :: unit
-      integer(int8), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
-      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
-      character(len=*), intent(in), optional :: header  !< If present, text to write before data.
-      character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
-      !!
-      !! Example
-      !! -------
-      !!
-      !!```fortran
-      !! integer(int8) :: data(3, 2)
-      !! call savetxt("log.txt", data)
-      !!```
-      !!
-      integer :: i, ios
-      character(len=:), allocatable :: delimiter_
-      character(len=:), allocatable :: delim_str
-      character(len=:), allocatable :: default_fmt
-      character(len=:), allocatable :: fmt_
-      character(len=:), allocatable :: comments_
-      character(len=:), allocatable :: header_
-      character(len=:), allocatable :: footer_
-      !
-      logical :: opened
-      character(len=7) :: writable
-      character(len=1024) :: iomsg, msgout, fout
-
-      delimiter_ = optval(delimiter, delimiter_default)
-      delim_str = "'"//delimiter_//"'"
-      comments_ = optval(comments, comment_default)
-      header_ = optval(trim(header), '')
-      footer_ = optval(trim(footer), '')
-
-      if(index(delimiter_, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
-          call error_stop(msg=trim(msgout))
-      end if
-
-      if(scan(whitespace, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-
-        default_fmt = FMT_INT(2:len(FMT_INT)-1)
-      fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
-
-      ! !!! Check first argument (filename or unit) !!!!!!!!
-      inquire (unit=unit, opened=opened, write=writable) ! Check that was opened and is writable
-      if((.not. opened) .or. (writable(1:1) /= 'Y')) then
-          write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open for writing'
-          call error_stop(msg=trim(msgout))
-      end if
-      write(fout,'(i0)') unit
-      fout = adjustl(fout)  ! fout is used only for unified error message later
-      ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      ! Write the header if non-empty
-      if (header_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-        
-      do i = 1, size(d, 1)
-          write(unit, fmt_, &
-                iostat=ios,iomsg=iomsg) d(i, :)
-        
-        if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
-            call error_stop(msg=trim(msgout))
-        end if           
-      end do
-
-      if (footer_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-
-
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
-      
-    end subroutine savetxt_iint8u
-    subroutine savetxt_iint16u (unit, d, delimiter, fmt, header, footer, comments)
-      !! version: experimental
-      !!
-      !! Saves a 2D array into a text file.
-      !!
-      !! Arguments
-      !! ---------
-      !!
-      integer, intent(in) :: unit
-      integer(int16), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
-      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
-      character(len=*), intent(in), optional :: header  !< If present, text to write before data.
-      character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
-      !!
-      !! Example
-      !! -------
-      !!
-      !!```fortran
-      !! integer(int16) :: data(3, 2)
-      !! call savetxt("log.txt", data)
-      !!```
-      !!
-      integer :: i, ios
-      character(len=:), allocatable :: delimiter_
-      character(len=:), allocatable :: delim_str
-      character(len=:), allocatable :: default_fmt
-      character(len=:), allocatable :: fmt_
-      character(len=:), allocatable :: comments_
-      character(len=:), allocatable :: header_
-      character(len=:), allocatable :: footer_
-      !
-      logical :: opened
-      character(len=7) :: writable
-      character(len=1024) :: iomsg, msgout, fout
-
-      delimiter_ = optval(delimiter, delimiter_default)
-      delim_str = "'"//delimiter_//"'"
-      comments_ = optval(comments, comment_default)
-      header_ = optval(trim(header), '')
-      footer_ = optval(trim(footer), '')
-
-      if(index(delimiter_, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
-          call error_stop(msg=trim(msgout))
-      end if
-
-      if(scan(whitespace, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-
-        default_fmt = FMT_INT(2:len(FMT_INT)-1)
-      fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
-
-      ! !!! Check first argument (filename or unit) !!!!!!!!
-      inquire (unit=unit, opened=opened, write=writable) ! Check that was opened and is writable
-      if((.not. opened) .or. (writable(1:1) /= 'Y')) then
-          write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open for writing'
-          call error_stop(msg=trim(msgout))
-      end if
-      write(fout,'(i0)') unit
-      fout = adjustl(fout)  ! fout is used only for unified error message later
-      ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      ! Write the header if non-empty
-      if (header_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-        
-      do i = 1, size(d, 1)
-          write(unit, fmt_, &
-                iostat=ios,iomsg=iomsg) d(i, :)
-        
-        if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
-            call error_stop(msg=trim(msgout))
-        end if           
-      end do
-
-      if (footer_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-
-
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
-      
-    end subroutine savetxt_iint16u
-    subroutine savetxt_iint32u (unit, d, delimiter, fmt, header, footer, comments)
-      !! version: experimental
-      !!
-      !! Saves a 2D array into a text file.
-      !!
-      !! Arguments
-      !! ---------
-      !!
-      integer, intent(in) :: unit
-      integer(int32), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
-      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
-      character(len=*), intent(in), optional :: header  !< If present, text to write before data.
-      character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
-      !!
-      !! Example
-      !! -------
-      !!
-      !!```fortran
-      !! integer(int32) :: data(3, 2)
-      !! call savetxt("log.txt", data)
-      !!```
-      !!
-      integer :: i, ios
-      character(len=:), allocatable :: delimiter_
-      character(len=:), allocatable :: delim_str
-      character(len=:), allocatable :: default_fmt
-      character(len=:), allocatable :: fmt_
-      character(len=:), allocatable :: comments_
-      character(len=:), allocatable :: header_
-      character(len=:), allocatable :: footer_
-      !
-      logical :: opened
-      character(len=7) :: writable
-      character(len=1024) :: iomsg, msgout, fout
-
-      delimiter_ = optval(delimiter, delimiter_default)
-      delim_str = "'"//delimiter_//"'"
-      comments_ = optval(comments, comment_default)
-      header_ = optval(trim(header), '')
-      footer_ = optval(trim(footer), '')
-
-      if(index(delimiter_, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
-          call error_stop(msg=trim(msgout))
-      end if
-
-      if(scan(whitespace, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-
-        default_fmt = FMT_INT(2:len(FMT_INT)-1)
-      fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
-
-      ! !!! Check first argument (filename or unit) !!!!!!!!
-      inquire (unit=unit, opened=opened, write=writable) ! Check that was opened and is writable
-      if((.not. opened) .or. (writable(1:1) /= 'Y')) then
-          write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open for writing'
-          call error_stop(msg=trim(msgout))
-      end if
-      write(fout,'(i0)') unit
-      fout = adjustl(fout)  ! fout is used only for unified error message later
-      ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      ! Write the header if non-empty
-      if (header_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-        
-      do i = 1, size(d, 1)
-          write(unit, fmt_, &
-                iostat=ios,iomsg=iomsg) d(i, :)
-        
-        if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
-            call error_stop(msg=trim(msgout))
-        end if           
-      end do
-
-      if (footer_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-
-
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
-      
-    end subroutine savetxt_iint32u
-    subroutine savetxt_iint64u (unit, d, delimiter, fmt, header, footer, comments)
-      !! version: experimental
-      !!
-      !! Saves a 2D array into a text file.
-      !!
-      !! Arguments
-      !! ---------
-      !!
-      integer, intent(in) :: unit
-      integer(int64), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
-      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
-      character(len=*), intent(in), optional :: header  !< If present, text to write before data.
-      character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
-      !!
-      !! Example
-      !! -------
-      !!
-      !!```fortran
-      !! integer(int64) :: data(3, 2)
-      !! call savetxt("log.txt", data)
-      !!```
-      !!
-      integer :: i, ios
-      character(len=:), allocatable :: delimiter_
-      character(len=:), allocatable :: delim_str
-      character(len=:), allocatable :: default_fmt
-      character(len=:), allocatable :: fmt_
-      character(len=:), allocatable :: comments_
-      character(len=:), allocatable :: header_
-      character(len=:), allocatable :: footer_
-      !
-      logical :: opened
-      character(len=7) :: writable
-      character(len=1024) :: iomsg, msgout, fout
-
-      delimiter_ = optval(delimiter, delimiter_default)
-      delim_str = "'"//delimiter_//"'"
-      comments_ = optval(comments, comment_default)
-      header_ = optval(trim(header), '')
-      footer_ = optval(trim(footer), '')
-
-      if(index(delimiter_, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
-          call error_stop(msg=trim(msgout))
-      end if
-
-      if(scan(whitespace, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-
-        default_fmt = FMT_INT(2:len(FMT_INT)-1)
-      fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
-
-      ! !!! Check first argument (filename or unit) !!!!!!!!
-      inquire (unit=unit, opened=opened, write=writable) ! Check that was opened and is writable
-      if((.not. opened) .or. (writable(1:1) /= 'Y')) then
-          write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open for writing'
-          call error_stop(msg=trim(msgout))
-      end if
-      write(fout,'(i0)') unit
-      fout = adjustl(fout)  ! fout is used only for unified error message later
-      ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      ! Write the header if non-empty
-      if (header_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-        
-      do i = 1, size(d, 1)
-          write(unit, fmt_, &
-                iostat=ios,iomsg=iomsg) d(i, :)
-        
-        if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
-            call error_stop(msg=trim(msgout))
-        end if           
-      end do
-
-      if (footer_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-
-
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
-      
-    end subroutine savetxt_iint64u
-    subroutine savetxt_cspu (unit, d, delimiter, fmt, header, footer, comments)
-      !! version: experimental
-      !!
-      !! Saves a 2D array into a text file.
-      !!
-      !! Arguments
-      !! ---------
-      !!
-      integer, intent(in) :: unit
-      complex(sp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
-      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
-      character(len=*), intent(in), optional :: header  !< If present, text to write before data.
-      character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
-      !!
-      !! Example
-      !! -------
-      !!
-      !!```fortran
-      !! complex(sp) :: data(3, 2)
-      !! call savetxt("log.txt", data)
-      !!```
-      !!
-      integer :: i, ios
-      character(len=:), allocatable :: delimiter_
-      character(len=:), allocatable :: delim_str
-      character(len=:), allocatable :: default_fmt
-      character(len=:), allocatable :: fmt_
-      character(len=:), allocatable :: comments_
-      character(len=:), allocatable :: header_
-      character(len=:), allocatable :: footer_
-      !
-      logical :: opened
-      character(len=7) :: writable
-      character(len=1024) :: iomsg, msgout, fout
-
-      delimiter_ = optval(delimiter, delimiter_default)
-      delim_str = "'"//delimiter_//"'"
-      comments_ = optval(comments, comment_default)
-      header_ = optval(trim(header), '')
-      footer_ = optval(trim(footer), '')
-
-      if(index(delimiter_, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
-          call error_stop(msg=trim(msgout))
-      end if
-
-      if(scan(whitespace, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-
-        default_fmt = FMT_COMPLEX_sp(2:11)//delim_str//FMT_COMPLEX_sp(14:23)
-      fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
-
-      ! !!! Check first argument (filename or unit) !!!!!!!!
-      inquire (unit=unit, opened=opened, write=writable) ! Check that was opened and is writable
-      if((.not. opened) .or. (writable(1:1) /= 'Y')) then
-          write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open for writing'
-          call error_stop(msg=trim(msgout))
-      end if
-      write(fout,'(i0)') unit
-      fout = adjustl(fout)  ! fout is used only for unified error message later
-      ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      ! Write the header if non-empty
-      if (header_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-        
-      do i = 1, size(d, 1)
-          write(unit, fmt_, &
-                iostat=ios,iomsg=iomsg) d(i, :)
-        
-        if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
-            call error_stop(msg=trim(msgout))
-        end if           
-      end do
-
-      if (footer_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-
-
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
-      
-    end subroutine savetxt_cspu
-    subroutine savetxt_cdpu (unit, d, delimiter, fmt, header, footer, comments)
-      !! version: experimental
-      !!
-      !! Saves a 2D array into a text file.
-      !!
-      !! Arguments
-      !! ---------
-      !!
-      integer, intent(in) :: unit
-      complex(dp), intent(in) :: d(:,:)           ! The 2D array to save
-      character(len=*), intent(in), optional :: delimiter  ! Column delimiter. Default is a space ' '.
-      character(len=*), intent(in), optional :: fmt  !< Fortran format specifier. Defaults to the write format for the data type.
-      character(len=*), intent(in), optional :: header  !< If present, text to write before data.
-      character(len=*), intent(in), optional :: footer  !< If present, text to write after data.
-      character(len=*), intent(in), optional :: comments  !< Comment character. Default "#".
-      !!
-      !! Example
-      !! -------
-      !!
-      !!```fortran
-      !! complex(dp) :: data(3, 2)
-      !! call savetxt("log.txt", data)
-      !!```
-      !!
-      integer :: i, ios
-      character(len=:), allocatable :: delimiter_
-      character(len=:), allocatable :: delim_str
-      character(len=:), allocatable :: default_fmt
-      character(len=:), allocatable :: fmt_
-      character(len=:), allocatable :: comments_
-      character(len=:), allocatable :: header_
-      character(len=:), allocatable :: footer_
-      !
-      logical :: opened
-      character(len=7) :: writable
-      character(len=1024) :: iomsg, msgout, fout
-
-      delimiter_ = optval(delimiter, delimiter_default)
-      delim_str = "'"//delimiter_//"'"
-      comments_ = optval(comments, comment_default)
-      header_ = optval(trim(header), '')
-      footer_ = optval(trim(footer), '')
-
-      if(index(delimiter_, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter string cannot include the comments string'
-          call error_stop(msg=trim(msgout))
-      end if
-
-      if(scan(whitespace, comments_) /= 0) then
-          write (msgout,'(a)') 'savetxt error: comments string cannot include whitespaces'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-      if(scan(LF//CR//VT//FF, delimiter_ ) /= 0) then
-          write (msgout,'(a)') 'savetxt error: delimiter cannot include newline'
-          call error_stop(msg=trim(msgout))
-      end if
-        
-
-        default_fmt = FMT_COMPLEX_dp(2:11)//delim_str//FMT_COMPLEX_dp(14:23)
-      fmt_ = "(*("//optval(fmt, default_fmt)//",:,"//delim_str//"))"
-
-      ! !!! Check first argument (filename or unit) !!!!!!!!
-      inquire (unit=unit, opened=opened, write=writable) ! Check that was opened and is writable
-      if((.not. opened) .or. (writable(1:1) /= 'Y')) then
-          write (msgout,'(a,i0,a)') 'savetxt error: unit ',unit,' not open for writing'
-          call error_stop(msg=trim(msgout))
-      end if
-      write(fout,'(i0)') unit
-      fout = adjustl(fout)  ! fout is used only for unified error message later
-      ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      ! Write the header if non-empty
-      if (header_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(header_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> header to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-        
-      do i = 1, size(d, 1)
-          write(unit, fmt_, &
-                iostat=ios,iomsg=iomsg) d(i, :)
-        
-        if (ios/=0) then 
-            write (msgout,1) trim(iomsg),size(d,2),i,trim(fout)
-            call error_stop(msg=trim(msgout))
-        end if           
-      end do
-
-      if (footer_ /= '') then
-          write (unit, '(A)', iostat=ios, iomsg=iomsg) prepend(footer_, comments_)
-          if (ios/=0) then
-              write (msgout,'(a)') 'savetxt: error <'//trim(iomsg)//"> footer to "//trim(fout)
-              call error_stop(msg=trim(msgout))
-          end if           
-      end if
-
-
-      1 format('savetxt: error <',a,'> writing ',i0,' values to line ',i0,' of ',a,'.')
-      
-    end subroutine savetxt_cdpu
-  pure function prepend(Sin, comment) result(Sout)
-    character(len=*), intent(in) :: Sin
-    character(len=:), allocatable :: Sout
-    character(len=*), intent(in) :: comment 
-    character(len=len(comment)+1) :: com_
-    integer :: bol, eol       ! indexes of beginning and end of line
-
-    if (trim(Sin) == '') then
-        Sout = ''
-        return
-    end if
-    
-    com_ = comment//" "
-    bol = 1
-    Sout = com_              ! Initialize to comment the first line
-    do
-      eol = index(Sin(bol:), nl) + bol - 1 ! position of end of line in original string
-      if (eol == bol - 1) exit             ! index returned 0
-      Sout = Sout//Sin(bol:eol)//com_
-      bol = eol + 1
-    end do
-    if (eol < len(Sin)) Sout = Sout//Sin(eol + 1:) ! Add last line if not newline present
-
-  end function prepend
-
-
-  integer function number_of_columns(s, skiprows, delimiter)
-    !! version: experimental
-    !!
-    !! determine number of columns
-    integer,intent(in) :: s
-    integer, intent(in), optional :: skiprows
-    character(len=1), intent(in), optional :: delimiter
-
-    integer :: ios, skiprows_, i
-    character :: c
-    character(len=:), allocatable :: line
-    character(len=1) :: delimiter_
-    logical :: last_delim
-
-    skiprows_ = optval(skiprows, 0)
-    delimiter_ = optval(delimiter, delimiter_default)
-
-    rewind(s)
-
-    do i = 1, skiprows_
-      read(s, *)
-    end do
-    number_of_columns = 0
-    
-    ! Read first non-skipped line as a whole
-    call get_line(s, line, ios)
-    if (ios/=0 .or. .not.allocated(line)) return
-
-    last_delim = .true.
-    if (delimiter_ == delimiter_default) then
-      do i = 1,len(line)
-        c = line(i:i)
-        if (last_delim .and. .not. is_blank(c)) number_of_columns = number_of_columns + 1
-        last_delim = is_blank(c)
-      end do
-    else
-      do i = 1,len(line)
-        if (line(i:i) == delimiter_) number_of_columns = number_of_columns + 1
-      end do
-      if (number_of_columns == 0) then
-        if (len_trim(line) /= 0) number_of_columns = 1
-      else
-        number_of_columns = number_of_columns + 1
-      end if
-    end if
-    rewind(s)
-
-  end function number_of_columns
-
-
-  integer function number_of_rows(s) result(nrows)
-    !! version: experimental
-    !!
-    !! Determine the number or rows in a file
-    integer, intent(in)::s
-    integer :: ios
-
-    rewind(s)
-    nrows = 0
-    do
-      read(s, *, iostat=ios)
-      if (ios /= 0) exit
-      nrows = nrows + 1
-    end do
-
-    rewind(s)
-
-  end function number_of_rows
 
 
   integer function open(filename, mode, iostat) result(u)
